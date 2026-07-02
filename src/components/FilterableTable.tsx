@@ -653,7 +653,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                           <strong>{q.source}</strong> · {q.number} · {q.type} · {q.grade} · {q.exam_type} · 难度 {q.difficulty}
                           {' · '}
                           <a
-                            href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault') + '\\', '').replace(/\\/g, '/'))}`}
+                            href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split(((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学') + '/').pop() || '')}`}
                             style={{ color: 'var(--accent)', textDecoration: 'none' }}
                             title="在 Obsidian 中打开"
                           >
