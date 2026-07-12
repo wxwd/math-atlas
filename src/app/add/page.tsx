@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import MathText from '@/components/MathText';
 import styles from './page.module.css';
 
@@ -26,6 +26,18 @@ interface QuestionDraft {
 interface SaveResult {
   skipped?: boolean;
 }
+
+interface MetadataOptions {
+  sourceTypes: string[];
+  sourceNames: string[];
+  modules: string[];
+}
+
+const DEFAULT_METADATA_OPTIONS: MetadataOptions = {
+  sourceTypes: [],
+  sourceNames: [],
+  modules: [],
+};
 
 interface ParsedQuestion {
   sections: Record<string, string>;  // ## 标题 → 内容（如 "题目" → "已知集合A..."）
@@ -125,6 +137,7 @@ export default function AddPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [metadataOptions, setMetadataOptions] = useState<MetadataOptions>(DEFAULT_METADATA_OPTIONS);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null); // 当前高亮的卡片
   const [conflictList, setConflictList] = useState<{ index: number; source_qno: string; source_name: string; fileName: string }[] | null>(null);
   const pendingListRef = useRef<QuestionDraft[]>([]); // 暂存待入库列表，等用户选择冲突策略后复用
@@ -133,6 +146,17 @@ export default function AddPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]); // 每张卡片的 DOM 引用，用于自动滚动
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('/api/question-options', { signal: controller.signal })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then((options: MetadataOptions) => setMetadataOptions(options))
+      .catch(() => { /* 保留内置候选项 */ });
+
+    return () => controller.abort();
+  }, []);
 
   // ===== 图片上传 =====
   const handleUpload = async (file: File) => {
@@ -314,13 +338,16 @@ export default function AddPage() {
       <div className={styles.metaBar}>
         <label className={styles.metaLabel}>
           来源类型
-          <select className={styles.metaSelect} value={sourceType} onChange={e => setSourceType(e.target.value)}>
-            <option value="">（不设默认）</option>
-            <option value="讲义">讲义</option>
-            <option value="外训">外训</option>
-            <option value="赛事真题">赛事真题</option>
-            <option value="考试真题">考试真题</option>
-          </select>
+          <input
+            className={styles.metaInput}
+            list="source-type-options"
+            placeholder="输入或选择"
+            value={sourceType}
+            onChange={e => setSourceType(e.target.value)}
+          />
+          <datalist id="source-type-options">
+            {metadataOptions.sourceTypes.map(value => <option key={value} value={value} />)}
+          </datalist>
         </label>
 
         <label className={styles.metaLabel}>
@@ -335,27 +362,38 @@ export default function AddPage() {
 
         <label className={styles.metaLabel}>
           来源名称
-          <input className={styles.metaInput} placeholder="留空则取 YAML" value={sourceName} onChange={e => setSourceName(e.target.value)} />
+          <input
+            className={styles.metaInput}
+            list="source-name-options"
+            placeholder="输入或选择"
+            value={sourceName}
+            onChange={e => setSourceName(e.target.value)}
+          />
+          <datalist id="source-name-options">
+            {metadataOptions.sourceNames.map(value => <option key={value} value={value} />)}
+          </datalist>
         </label>
 
         <label className={styles.metaLabel}>
           知识模块
-          <select className={styles.metaSelect} value={defaultModule} onChange={e => setDefaultModule(e.target.value)}>
-            <option value="">（不设默认）</option>
-            <option value="代数">代数</option>
-            <option value="几何">几何</option>
-            <option value="数论">数论</option>
-            <option value="组合">组合</option>
-          </select>
+          <input
+            className={styles.metaInput}
+            list="module-options"
+            placeholder="输入或选择"
+            value={defaultModule}
+            onChange={e => setDefaultModule(e.target.value)}
+          />
+          <datalist id="module-options">
+            {metadataOptions.modules.map(value => <option key={value} value={value} />)}
+          </datalist>
         </label>
 
         <label className={styles.metaLabel}>
           年级
           <select className={styles.metaSelect} value={defaultGrade} onChange={e => setDefaultGrade(e.target.value)}>
+            <option value="初中">初中</option>
             <option value="高中">高中</option>
-            <option value="高一">高一</option>
-            <option value="高二">高二</option>
-            <option value="高三">高三</option>
+            <option value="竞赛">竞赛</option>
           </select>
         </label>
 
