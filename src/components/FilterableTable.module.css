@@ -33,15 +33,17 @@
 }
 
 .filterBar {
+  --filter-control-height: 38px;
   display: flex;
-  gap: 0.75rem;
+  column-gap: 0.75rem;
+  row-gap: 0.9rem;
   flex-wrap: wrap;
   align-items: flex-end;
   margin-bottom: 1rem;
-  padding: 1rem;
+  padding: 1.1rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .filterLabel {
@@ -49,23 +51,27 @@
   flex-direction: column;
   font-size: 0.78rem;
   color: var(--text-muted);
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .filterSelect,
 .filterInput {
+  box-sizing: border-box;
+  height: var(--filter-control-height);
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 7px;
   font-size: 0.85rem;
   outline: none;
   background: var(--surface);
   color: var(--text);
   min-width: 80px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .filterSelect:focus,
 .filterInput:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .multiSelect {
@@ -75,11 +81,14 @@
 
 .multiSelectSummary {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: var(--filter-control-height);
   max-width: 180px;
   padding: 0.4rem 1.6rem 0.4rem 0.55rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 7px;
   background: var(--surface);
   color: var(--text);
   font-size: 0.85rem;
@@ -88,6 +97,7 @@
   white-space: nowrap;
   cursor: pointer;
   list-style: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .multiSelectSummary::-webkit-details-marker {
@@ -103,6 +113,7 @@
 
 .multiSelect[open] .multiSelectSummary {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .multiSelectMenu {
@@ -149,9 +160,12 @@
 }
 
 .sortToggle {
+  box-sizing: border-box;
+  width: var(--filter-control-height);
+  height: var(--filter-control-height);
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 7px;
   background: var(--surface);
   color: var(--text);
   font-size: 0.9rem;
@@ -165,9 +179,11 @@
 }
 
 .btnClear {
+  box-sizing: border-box;
+  height: var(--filter-control-height);
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 7px;
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.82rem;
