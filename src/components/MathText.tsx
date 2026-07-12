@@ -15,7 +15,9 @@ function replaceImages(text: string): string {
   text = text.replace(
     /!\[([^\]]*)\]\(images\/([^)]+)\)/g,
     (_, alt: string, filename: string) => {
-      const width = parseInt(alt, 10);
+      // 只有 alt 完全由数字组成时才把它视为图片宽度。
+      // 文件名可能以数字开头（如 5_1061_...jpg），不能用 parseInt 直接判断。
+      const width = /^\d+$/.test(alt.trim()) ? Number(alt.trim()) : NaN;
       if (!isNaN(width) && width > 0) {
         return `<img src="/api/images/${encodeURIComponent(filename)}" alt="" style="width:${width}px;display:block;margin:0.5rem 0;" />`;
       }
