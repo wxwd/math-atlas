@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "86dccc875d012198",
+        "id": "08fd45eebef29761",
         "type": "tabs",
         "children": [
           {
-            "id": "0ce749b421e74603",
+            "id": "362e394287969a75",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "题库/高联一试/2016-高联一试-T1.md",
-                "mode": "source",
-                "source": true
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "2016-高联一试-T1"
+              "title": "新标签页"
             }
           }
         ]
@@ -183,11 +179,11 @@
       "bases:新建数据库": false
     }
   },
-  "active": "0ce749b421e74603",
+  "active": "362e394287969a75",
   "lastOpenFiles": [
+    "题库/高联一试/2016-高联一试-T1.md",
     "题库/高联一试/1978-高联一试-T7.md",
     "images/4e7a3699d0cb2a6660948db318c149c80a14c8579c05f0d08e68bcc86ecc3fba.png",
-    "题库/高联一试/2016-高联一试-T1.md",
     "demo/25全国1/2025-全国1-T9.md",
     "demo/25全国1/2025-全国1-T3.md",
     "demo/25全国1/2025-全国1-T5.md",
