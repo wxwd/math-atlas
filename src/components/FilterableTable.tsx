@@ -13,6 +13,18 @@ import styles from './FilterableTable.module.css';
 const PAGE_SIZE = 25;
 const BROWSE_PAGE_SIZE = 10;
 type SortField = 'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type';
+type BatchField = 'grade' | 'source_type' | 'source_year' | 'module' | 'type' | 'difficulty' | 'skill' | 'tags';
+
+const BATCH_FIELDS: { value: BatchField; label: string }[] = [
+  { value: 'grade', label: '年级' },
+  { value: 'source_type', label: '来源类型' },
+  { value: 'source_year', label: '来源年份' },
+  { value: 'module', label: '知识模块' },
+  { value: 'type', label: '题型' },
+  { value: 'difficulty', label: '难度' },
+  { value: 'skill', label: '技能' },
+  { value: 'tags', label: '标签' },
+];
 
 export default function FilterableTable({ questions }: { questions: QuestionMetaLight[] }) {
   const router = useRouter();
@@ -39,6 +51,10 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [sortBy, setSortBy] = useState<SortField>('source_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [deleting, setDeleting] = useState(false);
+  const [showBatchEditor, setShowBatchEditor] = useState(false);
+  const [batchField, setBatchField] = useState<BatchField>('module');
+  const [batchValue, setBatchValue] = useState('');
+  const [batchUpdating, setBatchUpdating] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -62,6 +78,18 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const modules = useMemo(() => [...new Set(questions.map(q => q.module).filter(Boolean))].sort(), [questions]);
   const skills = useMemo(() => [...new Set(questions.flatMap(q => q.skill).filter(Boolean))].sort(), [questions]);
   const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
+  const batchSuggestions = useMemo(() => {
+    const values: Partial<Record<BatchField, string[]>> = {
+      grade: grades,
+      source_type: sourceTypes,
+      source_year: sourceYears,
+      module: modules,
+      type: [...new Set(questions.map(q => q.type).filter(Boolean))].sort(),
+      skill: skills,
+      tags,
+    };
+    return values[batchField] || [];
+  }, [batchField, grades, sourceTypes, sourceYears, modules, questions, skills, tags]);
 
   const qidOrder = useMemo(() => {
     return qidInput
@@ -446,7 +474,6 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       baseSelection: new Set(selectedQids),
       active: false,
     };
-    tableAreaRef.current.setPointerCapture(event.pointerId);
   };
 
   const handleSelectionPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -461,6 +488,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
     drag.active = true;
     suppressRowClickRef.current = true;
+    area.setPointerCapture(event.pointerId);
     event.preventDefault();
 
     const box = {
@@ -558,6 +586,52 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       alert('删除失败：' + (error instanceof Error ? error.message : '未知错误'));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const updateSelected = async () => {
+    if (selectedQids.size === 0 || batchUpdating) return;
+    if (batchField === 'difficulty' && batchValue !== '') {
+      const value = Number(batchValue);
+      if (!Number.isFinite(value) || value < 0 || value > 1) {
+        alert('难度必须是 0 到 1 之间的数字');
+        return;
+      }
+    }
+
+    const isArrayField = batchField === 'skill' || batchField === 'tags';
+    const value = isArrayField
+      ? batchValue.split(/[，,\n]+/).map(item => item.trim()).filter(Boolean)
+      : batchValue;
+    const fieldLabel = BATCH_FIELDS.find(item => item.value === batchField)?.label || batchField;
+    const displayValue = isArrayField ? (value as string[]).join('、') || '空列表' : batchValue || '空值';
+    if (!confirm(`确定将 ${selectedQids.size} 道题目的“${fieldLabel}”覆盖为“${displayValue}”吗？`)) return;
+
+    setBatchUpdating(true);
+    try {
+      const res = await fetch('/api/batch-update-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qids: [...selectedQids], field: batchField, value }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || '批量修改失败');
+
+      const issues = (result.errors as { qid: number; message: string }[])
+        .map(item => `${item.qid}: ${item.message}`);
+      alert(
+        `已修改 ${result.updatedQids.length} 道题目。` +
+        (issues.length > 0 ? `\n\n未修改：\n${issues.join('\n')}` : ''),
+      );
+      if (result.updatedQids.length > 0) {
+        setShowBatchEditor(false);
+        setBatchValue('');
+        router.refresh();
+      }
+    } catch (error) {
+      alert('批量修改失败：' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setBatchUpdating(false);
     }
   };
 
@@ -728,9 +802,18 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           {selectedQids.size > 0 && ` · 已勾选 ${selectedQids.size} 道`}
         </span>
         {selectedQids.size > 0 && (
-          <button className={styles.btnDanger} onClick={deleteSelected} disabled={deleting}>
-            {deleting ? '处理中...' : `删除选中题目 (${selectedQids.size})`}
-          </button>
+          <>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => setShowBatchEditor(open => !open)}
+              aria-expanded={showBatchEditor}
+            >
+              批量设置属性
+            </button>
+            <button className={styles.btnDanger} onClick={deleteSelected} disabled={deleting}>
+              {deleting ? '处理中...' : `删除选中题目 (${selectedQids.size})`}
+            </button>
+          </>
         )}
         {filtered.length > 0 && (
           <>
@@ -742,6 +825,55 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           </>
         )}
       </div>
+
+      {selectedQids.size > 0 && showBatchEditor && (
+        <div className={styles.batchEditor}>
+          <strong>批量设置 {selectedQids.size} 道题目</strong>
+          <label className={styles.batchLabel}>
+            属性
+            <select
+              className={styles.filterSelect}
+              value={batchField}
+              onChange={event => {
+                setBatchField(event.target.value as BatchField);
+                setBatchValue('');
+              }}
+              disabled={batchUpdating}
+            >
+              {BATCH_FIELDS.map(field => (
+                <option key={field.value} value={field.value}>{field.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.batchLabel}>
+            新值
+            <input
+              className={styles.batchInput}
+              type={batchField === 'difficulty' ? 'number' : 'text'}
+              min={batchField === 'difficulty' ? 0 : undefined}
+              max={batchField === 'difficulty' ? 1 : undefined}
+              step={batchField === 'difficulty' ? 0.01 : undefined}
+              list={batchSuggestions.length > 0 ? 'batch-value-suggestions' : undefined}
+              value={batchValue}
+              onChange={event => setBatchValue(event.target.value)}
+              placeholder={batchField === 'skill' || batchField === 'tags' ? '多个值用逗号分隔；留空则清空' : '留空则设为空值'}
+              disabled={batchUpdating}
+            />
+            {batchSuggestions.length > 0 && (
+              <datalist id="batch-value-suggestions">
+                {batchSuggestions.map(value => <option key={value} value={value} />)}
+              </datalist>
+            )}
+          </label>
+          <button className={styles.btnAction} onClick={updateSelected} disabled={batchUpdating}>
+            {batchUpdating ? '正在修改...' : '应用'}
+          </button>
+          <button className={styles.btnClear} onClick={() => setShowBatchEditor(false)} disabled={batchUpdating}>
+            取消
+          </button>
+          <span className={styles.batchHint}>此操作会覆盖所选题目的原属性值</span>
+        </div>
+      )}
 
       {viewMode === 'browse' ? (
         <BrowseView

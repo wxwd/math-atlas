@@ -167,6 +167,72 @@
   opacity: 0.88;
 }
 
+.btnAction:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.btnSecondary {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btnSecondary:hover {
+  background: var(--accent-light);
+}
+
+.batchEditor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin: 0 0 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.batchEditor > strong {
+  align-self: center;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.batchLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.batchInput {
+  width: min(360px, 55vw);
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.batchInput:focus {
+  border-color: var(--accent);
+}
+
+.batchHint {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .btnDanger {
   padding: 0.45rem 0.85rem;
   border: 1px solid #dc2626;
