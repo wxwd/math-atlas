@@ -11,10 +11,10 @@ export interface QuestionMetaLight {
   qid: number;
   grade: string;
   source_type: string;
-  source_year: string;
+  source_year: number | null;
   source_name: string;
   source_qno: string;
-  module: string;
+  module: string[];
   type: string;
   filePath: string;
   difficulty: number;
@@ -121,15 +121,16 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
       if (data.qid) {
         // 防御：确保 skill / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
         const safeSkill = toStringArray(data.skill);
+        const safeModule = toStringArray(data.module);
         const safeTags = toStringArray(data.tags);
         results.push({
           qid: Number(data.qid),
           grade: String(data.grade || ''),
           source_type: String(data.source_type || ''),
-          source_year: String(data.source_year || ''),
+          source_year: data.source_year == null || data.source_year === '' ? null : Number(data.source_year),
           source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          module: String(data.module || ''),
+          module: safeModule,
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),
@@ -177,15 +178,16 @@ export function scanAllQuestions(): QuestionMeta[] {
 
       if (data.qid) {
         const safeSkill = toStringArray(data.skill);
+        const safeModule = toStringArray(data.module);
         const safeTags = toStringArray(data.tags);
         results.push({
           qid: Number(data.qid),
           grade: String(data.grade || ''),
           source_type: String(data.source_type || ''),
-          source_year: String(data.source_year || ''),
+          source_year: data.source_year == null || data.source_year === '' ? null : Number(data.source_year),
           source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          module: String(data.module || ''),
+          module: safeModule,
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),
@@ -228,15 +230,16 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
 
       if (data.qid === qid) {
         const safeSkill = toStringArray(data.skill);
+        const safeModule = toStringArray(data.module);
         const safeTags = toStringArray(data.tags);
         return {
           qid: Number(data.qid),
           grade: String(data.grade || ''),
           source_type: String(data.source_type || ''),
-          source_year: String(data.source_year || ''),
+          source_year: data.source_year == null || data.source_year === '' ? null : Number(data.source_year),
           source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          module: String(data.module || ''),
+          module: safeModule,
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),

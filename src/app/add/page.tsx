@@ -11,10 +11,10 @@ type ParsedYaml = Record<string, string | string[]>;
 
 interface QuestionDraft {
   source_type: string;
-  source_year: string;
+  source_year: number | null;
   source_name: string;
   source_qno: string;
-  module: string;
+  module: string[];
   type: string;
   grade: string;
   difficulty: number | null;
@@ -38,6 +38,11 @@ const DEFAULT_METADATA_OPTIONS: MetadataOptions = {
   sourceNames: [],
   modules: [],
 };
+
+function nonEmptyText(value: string | string[] | undefined, fallback = ''): string {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return fallback.trim();
+}
 
 interface ParsedQuestion {
   sections: Record<string, string>;  // ## 标题 → 内容（如 "题目" → "已知集合A..."）
@@ -246,12 +251,14 @@ export default function AddPage() {
         return null;
       }
 
+      const sourceYearValue = nonEmptyText(y.source_year, sourceYear);
+
       list.push({
-        source_type: typeof y.source_type === 'string' ? y.source_type : sourceType,
-        source_year: typeof y.source_year === 'string' ? y.source_year : sourceYear.trim(),
-        source_name: typeof y.source_name === 'string' ? y.source_name : sourceName.trim(),
-        source_qno: typeof y.source_qno === 'string' ? y.source_qno : '',
-        module: typeof y.module === 'string' ? y.module : defaultModule,
+        source_type: nonEmptyText(y.source_type, sourceType),
+        source_year: Number(sourceYearValue) || null,
+        source_name: nonEmptyText(y.source_name, sourceName),
+        source_qno: nonEmptyText(y.source_qno, `T${i + 1}`),
+        module: Array.isArray(y.module) ? y.module : typeof y.module === 'string' ? [y.module] : defaultModule ? [defaultModule] : [],
         type: finalType,
         grade: typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中',
         difficulty: typeof y.difficulty === 'string' && y.difficulty !== '' ? Number(y.difficulty) : null,
@@ -521,10 +528,10 @@ export default function AddPage() {
                   title={`点击跳转到原文第 ${q.startIndex + 1} 个字符`}
                 >
                   <div className={styles.cardMeta}>
-                    <span className={styles.cardIdx}>{q.yaml.source_qno || `T${i + 1}`}</span>
+                    <span className={styles.cardIdx}>{nonEmptyText(q.yaml.source_qno, `T${i + 1}`)}</span>
                     {/* 来源紧跟在题号后面 */}
                     {(() => {
-                      const src = q.yaml.source_name || sourceName.trim();
+                      const src = nonEmptyText(q.yaml.source_name, sourceName);
                       if (src) return <span className={styles.yamlTag}>{src}</span>;
                       return null;
                     })()}
@@ -533,9 +540,9 @@ export default function AddPage() {
                       const y = q.yaml;
                       const vals: string[] = [];
                       vals.push(typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中');
-                      const sourceTypeValue = y.source_type || sourceType;
+                      const sourceTypeValue = nonEmptyText(y.source_type, sourceType);
                       if (sourceTypeValue) vals.push(String(sourceTypeValue));
-                      const sourceYearValue = y.source_year || sourceYear;
+                      const sourceYearValue = nonEmptyText(y.source_year, sourceYear);
                       if (sourceYearValue) vals.push(String(sourceYearValue));
                       const moduleValue = y.module || defaultModule;
                       if (moduleValue) vals.push(String(moduleValue));

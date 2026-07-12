@@ -1,4 +1,5 @@
 import { scanAllQuestionsMeta } from '@/lib/questions';
+import { splitModules } from '@/lib/modules';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,6 @@ export async function GET() {
   return Response.json({
     sourceTypes: uniqueSorted(questions.map(question => question.source_type)),
     sourceNames: uniqueSorted(questions.map(question => question.source_name)),
-    modules: uniqueSorted(questions.map(question => question.module)),
+    modules: uniqueSorted(questions.flatMap(question => splitModules(question.module))),
   });
 }

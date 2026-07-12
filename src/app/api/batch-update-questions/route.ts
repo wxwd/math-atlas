@@ -17,7 +17,7 @@ const EDITABLE_FIELDS = new Set([
   'skill',
   'tags',
 ]);
-const ARRAY_FIELDS = new Set(['skill', 'tags']);
+const ARRAY_FIELDS = new Set(['module', 'skill', 'tags']);
 
 export async function POST(req: Request) {
   try {
@@ -37,16 +37,16 @@ export async function POST(req: Request) {
     let value: string | number | string[];
     if (ARRAY_FIELDS.has(field)) {
       if (!Array.isArray(body.value) || body.value.some(item => typeof item !== 'string')) {
-        return Response.json({ error: '技能和标签必须是字符串数组' }, { status: 400 });
+        return Response.json({ error: '知识模块、技能和标签必须是字符串数组' }, { status: 400 });
       }
       value = [...new Set(body.value.map(item => item.trim()).filter(Boolean))];
-    } else if (field === 'difficulty') {
+    } else if (field === 'difficulty' || field === 'source_year') {
       if (body.value === '') {
         value = '';
       } else {
         const difficulty = Number(body.value);
-        if (!Number.isFinite(difficulty) || difficulty < 0 || difficulty > 1) {
-          return Response.json({ error: '难度必须是 0 到 1 之间的数字' }, { status: 400 });
+        if (!Number.isFinite(difficulty) || (field === 'difficulty' && (difficulty < 0 || difficulty > 1))) {
+          return Response.json({ error: field === 'difficulty' ? '难度必须是 0 到 1 之间的数字' : '来源年份必须是数字' }, { status: 400 });
         }
         value = difficulty;
       }
@@ -78,9 +78,11 @@ export async function POST(req: Request) {
         parsed.data[field] = value;
         const next = matter.stringify(parsed.content, parsed.data);
 
-        if (field === 'source_name' && typeof value === 'string') {
-          const fileName = [value, question.source_qno].filter(Boolean).join('-') || String(question.qid);
-          const targetPath = path.resolve(BANK_PATH, value, `${fileName}.md`);
+        if (field === 'source_name' || field === 'source_year') {
+          const sourceName = field === 'source_name' ? String(value) : question.source_name;
+          const sourceYear = field === 'source_year' ? value : question.source_year;
+          const fileName = [sourceYear, sourceName, question.source_qno].filter(Boolean).join('-') || String(question.qid);
+          const targetPath = path.resolve(BANK_PATH, sourceName, `${fileName}.md`);
           const currentPath = path.resolve(question.filePath);
           if (!targetPath.startsWith(BANK_PATH + path.sep)) {
             throw new Error('目标路径超出题库目录');

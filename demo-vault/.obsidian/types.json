@@ -1,0 +1,19 @@
+{
+  "types": {
+    "aliases": "aliases",
+    "cssclasses": "multitext",
+    "tags": "tags",
+    "module": "multitext",
+    "skill": "multitext",
+    "ai_tags": "multitext",
+    "qid": "number",
+    "type": "text",
+    "difficulty": "number",
+    "source_name": "text",
+    "source_year": "number",
+    "source_type": "text",
+    "grade": "text",
+    "source_qno": "text",
+    "status": "text"
+  }
+}

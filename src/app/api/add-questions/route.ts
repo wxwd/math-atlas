@@ -10,10 +10,10 @@ const BANK_PATH = path.join(VAULT_PATH, '题库');
 interface QuestionInput {
   content: string;
   source_type?: string;
-  source_year?: string;
+  source_year: number | null;
   source_name: string;
   source_qno: string;
-  module?: string;
+  module?: string[];
   type: string;
   grade?: string;
   difficulty?: number | null;
@@ -22,11 +22,11 @@ interface QuestionInput {
 }
 
 /**
- * 根据 source_name 和 source_qno 计算文件路径
+ * 根据 source_year、source_name 和 source_qno 计算文件路径
  */
-function buildFilePath(sourceName: string, sourceQno: string, qid?: number): string {
+function buildFilePath(sourceYear: number | null, sourceName: string, sourceQno: string, qid?: number): string {
   const dirName = sourceName || '未分类';
-  const nameParts = [sourceName, sourceQno].filter(Boolean);
+  const nameParts = [sourceYear, sourceName, sourceQno].filter(Boolean);
   const baseName = nameParts.length > 0 ? nameParts.join('-') : String(qid);
   return path.join(BANK_PATH, dirName, `${baseName}.md`);
 }
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(questions) || questions.length === 0) {
     return Response.json({ error: '缺少题目数据' }, { status: 400 });
   }
+  if (questions.some(q => !Number.isFinite(q.source_year) || !q.source_name?.trim() || !q.source_qno?.trim())) {
+    return Response.json({ error: '来源年份、来源名称和来源题号不能为空' }, { status: 400 });
+  }
 
   // ===== action = "check"：只检查冲突，不写入 =====
   if (action === 'check') {
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      const filePath = buildFilePath(q.source_name, q.source_qno, dummyQid);
+      const filePath = buildFilePath(q.source_year, q.source_name, q.source_qno, dummyQid);
       if (fs.existsSync(filePath)) {
         const fileName = path.basename(filePath);
         conflicts.push({ index: i, source_qno: q.source_qno, source_name: q.source_name, fileName });
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
       lastQid = qid;
 
       // 先算文件路径，检查冲突
-      const filePath = buildFilePath(q.source_name, q.source_qno, qid);
+      const filePath = buildFilePath(q.source_year, q.source_name, q.source_qno, qid);
       const exists = fs.existsSync(filePath);
 
       // 文件已存在 + 用户选跳过 → 不写入
@@ -98,10 +101,10 @@ export async function POST(req: NextRequest) {
         qid,
         grade: q.grade || '高中',
         source_type: q.source_type || '',
-        source_year: q.source_year || '',
+        source_year: q.source_year ?? '',
         source_name: q.source_name,
         source_qno: q.source_qno,
-        module: q.module || '',
+        module: q.module || [],
         type: q.type,
         difficulty: q.difficulty ?? '',
         skill: q.skill || [],

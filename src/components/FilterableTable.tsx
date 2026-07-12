@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import MathText from '@/components/MathText';
 import BrowseView from '@/components/BrowseView';
 import { buildLatexHandout } from '@/lib/latex';
+import { splitModules } from '@/lib/modules';
 import styles from './FilterableTable.module.css';
 
 const PAGE_SIZE = 25;
@@ -74,16 +75,16 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
   const grades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
   const sourceTypes = useMemo(() => [...new Set(questions.map(q => q.source_type).filter(Boolean))].sort(), [questions]);
-  const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter(Boolean))].sort(), [questions]);
+  const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter((y): y is number => y != null))].sort((a, b) => a - b), [questions]);
   const sourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
-  const modules = useMemo(() => [...new Set(questions.map(q => q.module).filter(Boolean))].sort(), [questions]);
+  const modules = useMemo(() => [...new Set(questions.flatMap(q => splitModules(q.module)))].sort(), [questions]);
   const skills = useMemo(() => [...new Set(questions.flatMap(q => q.skill).filter(Boolean))].sort(), [questions]);
   const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
   const batchSuggestions = useMemo(() => {
     const values: Partial<Record<BatchField, string[]>> = {
       grade: grades,
       source_type: sourceTypes,
-      source_year: sourceYears,
+      source_year: sourceYears.map(String),
       source_name: sourceNames,
       module: modules,
       type: [...new Set(questions.map(q => q.type).filter(Boolean))].sort(),
@@ -110,9 +111,9 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       if (qidSet.size > 0 && !qidSet.has(q.qid)) return false;
       if (grade && q.grade !== grade) return false;
       if (sourceType && q.source_type !== sourceType) return false;
-      if (sourceYear && q.source_year !== sourceYear) return false;
+      if (sourceYear && q.source_year !== Number(sourceYear)) return false;
       if (sourceName && q.source_name !== sourceName) return false;
-      if (module && q.module !== module) return false;
+      if (module && !splitModules(q.module).includes(module)) return false;
       const num = toNum(q.source_qno);
       if (qnoMin && num < Number(qnoMin)) return false;
       if (qnoMax && num > Number(qnoMax)) return false;
@@ -139,7 +140,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           case 'source_qno':
             va = toNum(a.source_qno); vb = toNum(b.source_qno); break;
           case 'source_year':
-            va = a.source_year; vb = b.source_year; break;
+            va = a.source_year ?? 0; vb = b.source_year ?? 0; break;
           case 'difficulty':
             va = a.difficulty ?? 0; vb = b.difficulty ?? 0; break;
           case 'type':
@@ -601,7 +602,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       }
     }
 
-    const isArrayField = batchField === 'skill' || batchField === 'tags';
+    const isArrayField = batchField === 'module' || batchField === 'skill' || batchField === 'tags';
     const value = isArrayField
       ? batchValue.split(/[，,\n]+/).map(item => item.trim()).filter(Boolean)
       : batchValue;
@@ -858,7 +859,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
               list={batchSuggestions.length > 0 ? 'batch-value-suggestions' : undefined}
               value={batchValue}
               onChange={event => setBatchValue(event.target.value)}
-              placeholder={batchField === 'skill' || batchField === 'tags' ? '多个值用逗号分隔；留空则清空' : '留空则设为空值'}
+              placeholder={batchField === 'module' || batchField === 'skill' || batchField === 'tags' ? '多个值用逗号分隔；留空则清空' : '留空则设为空值'}
               disabled={batchUpdating}
             />
             {batchSuggestions.length > 0 && (
@@ -964,7 +965,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                   <td>{q.source_year}</td>
                   <td>{q.source_name}</td>
                   <td>{q.source_qno}</td>
-                  <td>{q.module}</td>
+                  <td>{q.module.join('、')}</td>
                   <td>{q.type}</td>
                   <td>{q.grade}</td>
                   <td>{q.difficulty}</td>
@@ -976,7 +977,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                     <td colSpan={12} style={{ padding: '1.5rem', border: 'none' }}>
                       <div className={styles.detail} style={{ marginTop: 0 }}>
                         <div className={styles.detailMeta}>
-                          <strong>{q.source_year} {q.source_name}</strong> · {q.source_qno} · {q.source_type} · {q.module} · {q.type} · {q.grade} · 难度 {q.difficulty}
+                          <strong>{q.source_year} {q.source_name}</strong> · {q.source_qno} · {q.source_type} · {q.module.join('、')} · {q.type} · {q.grade} · 难度 {q.difficulty}
                           {' · '}
                           <a
                             href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split(((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学') + '/').pop() || '')}`}
