@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
           module: q.module,
           type: q.type,
           filePath: q.filePath,
+          createdTime: q.createdTime,
+          modifiedTime: q.modifiedTime,
           difficulty: q.difficulty,
           skill: q.skill,
           tags: q.tags,

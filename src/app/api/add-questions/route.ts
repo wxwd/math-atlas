@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
         source_qno: q.source_qno,
         module: q.module || [],
         type: q.type,
-        difficulty: q.difficulty ?? '',
+        // Keep an unknown numeric property as YAML null. An empty string is
+        // inferred as text by Obsidian and conflicts with difficulty: number.
+        difficulty: q.difficulty ?? null,
         skill: q.skill || [],
         ai_tags: [],
         tags: q.tags || [],

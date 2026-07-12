@@ -92,11 +92,13 @@ export async function POST(req: Request) {
           }
           if (targetPath !== currentPath) {
             fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-            fs.writeFileSync(targetPath, next, 'utf8');
             try {
-              fs.unlinkSync(currentPath);
+              fs.renameSync(currentPath, targetPath);
+              fs.writeFileSync(targetPath, next, 'utf8');
             } catch (error) {
-              fs.rmSync(targetPath, { force: true });
+              if (fs.existsSync(targetPath) && !fs.existsSync(currentPath)) {
+                fs.renameSync(targetPath, currentPath);
+              }
               throw error;
             }
             updatedQids.push(question.qid);
@@ -104,9 +106,7 @@ export async function POST(req: Request) {
           }
         }
 
-        const tempPath = `${question.filePath}.mathatlas-tmp`;
-        fs.writeFileSync(tempPath, next, 'utf8');
-        fs.renameSync(tempPath, question.filePath);
+        fs.writeFileSync(question.filePath, next, 'utf8');
         updatedQids.push(question.qid);
       } catch (error) {
         errors.push({

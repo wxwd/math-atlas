@@ -13,7 +13,7 @@ import styles from './FilterableTable.module.css';
 
 const PAGE_SIZE = 25;
 const BROWSE_PAGE_SIZE = 10;
-type SortField = 'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type';
+type SortField = 'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type' | 'created_time' | 'modified_time';
 type BatchField = 'grade' | 'source_type' | 'source_year' | 'source_name' | 'module' | 'type' | 'difficulty' | 'skill' | 'tags';
 
 const BATCH_FIELDS: { value: BatchField; label: string }[] = [
@@ -145,13 +145,17 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             va = a.difficulty ?? 0; vb = b.difficulty ?? 0; break;
           case 'type':
             va = a.type || ''; vb = b.type || ''; break;
+          case 'created_time':
+            va = a.createdTime; vb = b.createdTime; break;
+          case 'modified_time':
+            va = a.modifiedTime; vb = b.modifiedTime; break;
           case 'source_name':
           default:
             va = a.source_name; vb = b.source_name; break;
         }
         if (va < vb) return -1 * dir;
         if (va > vb) return 1 * dir;
-        return 0;
+        return (a.qid - b.qid) * dir;
       });
     }
     return base;
@@ -763,12 +767,19 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
         <label className={styles.filterLabel}>
           排序
           <span className={styles.rangeGroup}>
-            <select className={styles.filterSelect} value={sortBy} onChange={e => { setSortBy(e.target.value as SortField); setPage(1); }}>
+            <select className={styles.filterSelect} value={sortBy} onChange={e => {
+              const nextSortBy = e.target.value as SortField;
+              setSortBy(nextSortBy);
+              if (nextSortBy === 'created_time' || nextSortBy === 'modified_time') setSortOrder('desc');
+              setPage(1);
+            }}>
               <option value="source_name">来源名称</option>
               <option value="source_year">来源年份</option>
               <option value="source_qno">来源题号</option>
               <option value="difficulty">难度</option>
               <option value="type">题型</option>
+              <option value="created_time">创建时间</option>
+              <option value="modified_time">修改时间</option>
             </select>
             <button
               className={styles.sortToggle}

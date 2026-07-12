@@ -17,6 +17,8 @@ export interface QuestionMetaLight {
   module: string[];
   type: string;
   filePath: string;
+  createdTime: number;
+  modifiedTime: number;
   difficulty: number;
   skill: string[];
   tags: string[];
@@ -72,6 +74,8 @@ let _metaCacheFingerprint: string | null = null;
 interface QuestionFileSnapshot {
   filePath: string;
   fingerprintPart: string;
+  createdTime: number;
+  modifiedTime: number;
 }
 
 /**
@@ -100,7 +104,9 @@ function snapshotQuestionFiles(): QuestionFileSnapshot[] {
         if (!stat.isFile()) continue;
         snapshots.push({
           filePath,
-          fingerprintPart: `${dirName}/${fileName}\0${stat.size}\0${stat.mtimeMs}`,
+          fingerprintPart: `${dirName}/${fileName}\0${stat.size}\0${stat.birthtimeMs}\0${stat.mtimeMs}`,
+          createdTime: stat.birthtimeMs,
+          modifiedTime: stat.mtimeMs,
         });
       } catch {
         // Obsidian may replace a file atomically while this scan is running.
@@ -147,7 +153,7 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
   ) return _metaCache;
 
   const results: QuestionMetaLight[] = [];
-  for (const { filePath } of fileSnapshots) {
+  for (const { filePath, createdTime, modifiedTime } of fileSnapshots) {
     const raw = fs.readFileSync(filePath, 'utf-8');
 
     let data: Frontmatter;
@@ -174,6 +180,8 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
         module: safeModule,
         type: String(data.type || ''),
         filePath,
+        createdTime,
+        modifiedTime,
         difficulty: Number(data.difficulty ?? 0),
         skill: safeSkill,
         tags: safeTags,
@@ -204,6 +212,7 @@ export function scanAllQuestions(): QuestionMeta[] {
       if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
 
       const filePath = path.join(dirPath, fileName);
+      const fileStat = fs.statSync(filePath);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
       let data: Frontmatter;
@@ -231,6 +240,8 @@ export function scanAllQuestions(): QuestionMeta[] {
           module: safeModule,
           type: String(data.type || ''),
           filePath,
+          createdTime: fileStat.birthtimeMs,
+          modifiedTime: fileStat.mtimeMs,
           difficulty: Number(data.difficulty ?? 0),
           skill: safeSkill,
           tags: safeTags,
@@ -257,6 +268,7 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
       if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
 
       const filePath = path.join(dirPath, fileName);
+      const fileStat = fs.statSync(filePath);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
       let data: Frontmatter;
@@ -283,6 +295,8 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
           module: safeModule,
           type: String(data.type || ''),
           filePath,
+          createdTime: fileStat.birthtimeMs,
+          modifiedTime: fileStat.mtimeMs,
           difficulty: Number(data.difficulty ?? 0),
           skill: safeSkill,
           tags: safeTags,
