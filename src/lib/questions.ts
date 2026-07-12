@@ -67,6 +67,50 @@ export function parseSections(raw: string): Record<string, string> {
 // 内存缓存：避免每次请求都重读 5000+ 文件
 let _metaCache: QuestionMetaLight[] | null = null;
 let _metaCacheVersion: string | null = null;
+let _metaCacheFingerprint: string | null = null;
+
+interface QuestionFileSnapshot {
+  filePath: string;
+  fingerprintPart: string;
+}
+
+/**
+ * Collect the Markdown files and the bits of filesystem metadata that change
+ * when Obsidian saves, creates, renames, or deletes a question.
+ *
+ * We intentionally do this lightweight stat pass on every request. Reading
+ * file metadata is much cheaper than reparsing the full question bank, while
+ * still allowing edits made outside the web app to invalidate the cache.
+ */
+function snapshotQuestionFiles(): QuestionFileSnapshot[] {
+  const snapshots: QuestionFileSnapshot[] = [];
+  const sourceDirs = fs.readdirSync(BANK_PATH).sort();
+
+  for (const dirName of sourceDirs) {
+    const dirPath = path.join(BANK_PATH, dirName);
+    if (!fs.statSync(dirPath).isDirectory()) continue;
+
+    const files = fs.readdirSync(dirPath).sort();
+    for (const fileName of files) {
+      if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
+
+      const filePath = path.join(dirPath, fileName);
+      try {
+        const stat = fs.statSync(filePath);
+        if (!stat.isFile()) continue;
+        snapshots.push({
+          filePath,
+          fingerprintPart: `${dirName}/${fileName}\0${stat.size}\0${stat.mtimeMs}`,
+        });
+      } catch {
+        // Obsidian may replace a file atomically while this scan is running.
+        // Skip that transient entry; the next request will see the saved file.
+      }
+    }
+  }
+
+  return snapshots;
+}
 
 function readCacheVersion(): string {
   try {
@@ -79,6 +123,7 @@ function readCacheVersion(): string {
 /** 清空缓存（新增/修改题目后调用） */
 export function invalidateMetaCache(): void {
   _metaCache = null;
+  _metaCacheFingerprint = null;
   const version = `${Date.now()}-${Math.random()}`;
   _metaCacheVersion = version;
   try {
@@ -93,51 +138,46 @@ export function invalidateMetaCache(): void {
 export function scanAllQuestionsMeta(): QuestionMetaLight[] {
   // The version file makes cache invalidation visible across separate route bundles.
   const currentVersion = readCacheVersion();
-  if (_metaCache && _metaCacheVersion === currentVersion) return _metaCache;
+  const fileSnapshots = snapshotQuestionFiles();
+  const currentFingerprint = fileSnapshots.map(file => file.fingerprintPart).join('\n');
+  if (
+    _metaCache
+    && _metaCacheVersion === currentVersion
+    && _metaCacheFingerprint === currentFingerprint
+  ) return _metaCache;
 
   const results: QuestionMetaLight[] = [];
-  const sourceDirs = fs.readdirSync(BANK_PATH);
+  for (const { filePath } of fileSnapshots) {
+    const raw = fs.readFileSync(filePath, 'utf-8');
 
-  for (const dirName of sourceDirs) {
-    const dirPath = path.join(BANK_PATH, dirName);
-    if (!fs.statSync(dirPath).isDirectory()) continue;
+    let data: Frontmatter;
+    try {
+      const parsed = matter(raw);
+      data = parsed.data;
+    } catch {
+      console.warn(`YAML 解析失败，跳过: ${filePath}`);
+      continue;
+    }
 
-    const files = fs.readdirSync(dirPath);
-    for (const fileName of files) {
-      if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
-
-      const filePath = path.join(dirPath, fileName);
-      const raw = fs.readFileSync(filePath, 'utf-8');
-
-      let data: Frontmatter;
-      try {
-        const parsed = matter(raw);
-        data = parsed.data;
-      } catch {
-        console.warn(`YAML 解析失败，跳过: ${filePath}`);
-        continue;
-      }
-
-      if (data.qid) {
-        // 防御：确保 skill / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
-        const safeSkill = toStringArray(data.skill);
-        const safeModule = toStringArray(data.module);
-        const safeTags = toStringArray(data.tags);
-        results.push({
-          qid: Number(data.qid),
-          grade: String(data.grade || ''),
-          source_type: String(data.source_type || ''),
-          source_year: data.source_year == null || data.source_year === '' ? null : Number(data.source_year),
-          source_name: String(data.source_name || ''),
-          source_qno: String(data.source_qno || ''),
-          module: safeModule,
-          type: String(data.type || ''),
-          filePath,
-          difficulty: Number(data.difficulty ?? 0),
-          skill: safeSkill,
-          tags: safeTags,
-        });
-      }
+    if (data.qid) {
+      // 防御：确保 skill / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
+      const safeSkill = toStringArray(data.skill);
+      const safeModule = toStringArray(data.module);
+      const safeTags = toStringArray(data.tags);
+      results.push({
+        qid: Number(data.qid),
+        grade: String(data.grade || ''),
+        source_type: String(data.source_type || ''),
+        source_year: data.source_year == null || data.source_year === '' ? null : Number(data.source_year),
+        source_name: String(data.source_name || ''),
+        source_qno: String(data.source_qno || ''),
+        module: safeModule,
+        type: String(data.type || ''),
+        filePath,
+        difficulty: Number(data.difficulty ?? 0),
+        skill: safeSkill,
+        tags: safeTags,
+      });
     }
   }
 
@@ -146,6 +186,7 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
   // 存入缓存，下次直接返回
   _metaCache = results;
   _metaCacheVersion = currentVersion;
+  _metaCacheFingerprint = currentFingerprint;
   return results;
 }
 
