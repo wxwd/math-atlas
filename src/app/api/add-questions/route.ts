@@ -9,25 +9,23 @@ const BANK_PATH = path.join(VAULT_PATH, '题库');
 
 interface QuestionInput {
   content: string;
-  source: string;
-  number: string;
+  source_type?: string;
+  source_year?: string;
+  source_name: string;
+  source_qno: string;
   type: string;
   grade?: string;
-  semester?: string;
-  exam_type?: string;
   difficulty?: number | null;
   knowledge?: string[];
   tags?: string[];
 }
 
 /**
- * 根据 source 和 number 计算文件路径
- * source 为空 → 目录用"未分类"
- * source + number 都为空 → 文件名用 qid 兜底（qid 传给第二个参数）
+ * 根据 source_name 和 source_qno 计算文件路径
  */
-function buildFilePath(source: string, number: string, qid?: number): string {
-  const dirName = source || '未分类';
-  const nameParts = [source, number].filter(Boolean);
+function buildFilePath(sourceName: string, sourceQno: string, qid?: number): string {
+  const dirName = sourceName || '未分类';
+  const nameParts = [sourceName, sourceQno].filter(Boolean);
   const baseName = nameParts.length > 0 ? nameParts.join('-') : String(qid);
   return path.join(BANK_PATH, dirName, `${baseName}.md`);
 }
@@ -57,16 +55,16 @@ export async function POST(req: NextRequest) {
 
   // ===== action = "check"：只检查冲突，不写入 =====
   if (action === 'check') {
-    const conflicts: { index: number; number: string; source: string; fileName: string }[] = [];
+    const conflicts: { index: number; source_qno: string; source_name: string; fileName: string }[] = [];
     // 先用一个占位 qid 算路径（目录和文件名不依赖 qid，但 source/number 都空时需要）
     const dummyQid = Date.now();
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      const filePath = buildFilePath(q.source, q.number, dummyQid);
+      const filePath = buildFilePath(q.source_name, q.source_qno, dummyQid);
       if (fs.existsSync(filePath)) {
         const fileName = path.basename(filePath);
-        conflicts.push({ index: i, number: q.number, source: q.source, fileName });
+        conflicts.push({ index: i, source_qno: q.source_qno, source_name: q.source_name, fileName });
       }
     }
 
@@ -74,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ===== action = "write"（或未指定，兼容旧版）=====
-  const results: { qid: number; number: string; source: string; skipped?: boolean; error?: string }[] = [];
+  const results: { qid: number; source_qno: string; source_name: string; skipped?: boolean; error?: string }[] = [];
   let lastQid = Date.now();
 
   for (const q of questions) {
@@ -85,12 +83,12 @@ export async function POST(req: NextRequest) {
       lastQid = qid;
 
       // 先算文件路径，检查冲突
-      const filePath = buildFilePath(q.source, q.number, qid);
+      const filePath = buildFilePath(q.source_name, q.source_qno, qid);
       const exists = fs.existsSync(filePath);
 
       // 文件已存在 + 用户选跳过 → 不写入
       if (exists && onConflict === 'skip') {
-        results.push({ qid, number: q.number, source: q.source, skipped: true });
+        results.push({ qid, source_qno: q.source_qno, source_name: q.source_name, skipped: true });
         continue;
       }
 
@@ -98,12 +96,12 @@ export async function POST(req: NextRequest) {
       const yaml: Record<string, any> = {
         qid,
         grade: q.grade || '高中',
-        source: q.source,
-        number: q.number,
+        source_type: q.source_type || '',
+        source_year: q.source_year || '',
+        source_name: q.source_name,
+        source_qno: q.source_qno,
         type: q.type,
         difficulty: q.difficulty ?? '',
-        semester: q.semester || '',
-        exam_type: q.exam_type || '',
         knowledge: q.knowledge || [],
         ai_tags: [],
         tags: q.tags || [],
@@ -130,9 +128,9 @@ export async function POST(req: NextRequest) {
 
       // 写入文件
       fs.writeFileSync(filePath, frontmatter, 'utf-8');
-      results.push({ qid, number: q.number, source: q.source });
+      results.push({ qid, source_qno: q.source_qno, source_name: q.source_name });
     } catch (err: any) {
-      results.push({ qid: 0, number: q.number, source: q.source, error: err.message });
+      results.push({ qid: 0, source_qno: q.source_qno, source_name: q.source_name, error: err.message });
     }
   }
 

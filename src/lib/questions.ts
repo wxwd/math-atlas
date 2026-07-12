@@ -4,15 +4,17 @@ import matter from 'gray-matter';
 
 const VAULT_PATH = process.env.VAULT_PATH || './demo-vault';
 const BANK_PATH = path.join(VAULT_PATH, '题库');
+const CACHE_VERSION_PATH = path.join(VAULT_PATH, '.mathatlas-cache-version');
 
 // 轻量元数据（不含正文，用于首页表格）
 export interface QuestionMetaLight {
   qid: number;
   grade: string;
-  source: string;
-  number: string;
+  source_type: string;
+  source_year: string;
+  source_name: string;
+  source_qno: string;
   type: string;
-  exam_type: string;
   filePath: string;
   difficulty: number;
   knowledge: string[];
@@ -55,16 +57,34 @@ export function parseSections(raw: string): Record<string, string> {
 
 // 内存缓存：避免每次请求都重读 5000+ 文件
 let _metaCache: QuestionMetaLight[] | null = null;
+let _metaCacheVersion: string | null = null;
+
+function readCacheVersion(): string {
+  try {
+    return fs.readFileSync(CACHE_VERSION_PATH, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
 
 /** 清空缓存（新增/修改题目后调用） */
 export function invalidateMetaCache(): void {
   _metaCache = null;
+  const version = `${Date.now()}-${Math.random()}`;
+  _metaCacheVersion = version;
+  try {
+    // Persist the invalidation so other Next.js server bundles/processes see it too.
+    fs.writeFileSync(CACHE_VERSION_PATH, version, 'utf8');
+  } catch (error) {
+    console.warn(`无法写入题库缓存版本: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /** 扫描题库，只返回元数据（不含 content 正文） */
 export function scanAllQuestionsMeta(): QuestionMetaLight[] {
-  // 有缓存就直接返回，毫秒级
-  if (_metaCache) return _metaCache;
+  // The version file makes cache invalidation visible across separate route bundles.
+  const currentVersion = readCacheVersion();
+  if (_metaCache && _metaCacheVersion === currentVersion) return _metaCache;
 
   const results: QuestionMetaLight[] = [];
   const sourceDirs = fs.readdirSync(BANK_PATH);
@@ -100,10 +120,11 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
         results.push({
           qid: data.qid,
           grade: data.grade || '',
-          source: data.source || '',
-          number: data.number || '',
+          source_type: data.source_type || '',
+          source_year: String(data.source_year || ''),
+          source_name: data.source_name || '',
+          source_qno: String(data.source_qno || ''),
           type: data.type || '',
-          exam_type: data.exam_type || '',
           filePath,
           difficulty: data.difficulty ?? 0,
           knowledge: safeKnowledge,
@@ -117,6 +138,7 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
 
   // 存入缓存，下次直接返回
   _metaCache = results;
+  _metaCacheVersion = currentVersion;
   return results;
 }
 
@@ -157,10 +179,11 @@ export function scanAllQuestions(): QuestionMeta[] {
         results.push({
           qid: data.qid,
           grade: data.grade || '',
-          source: data.source || '',
-          number: data.number || '',
+          source_type: data.source_type || '',
+          source_year: String(data.source_year || ''),
+          source_name: data.source_name || '',
+          source_qno: String(data.source_qno || ''),
           type: data.type || '',
-          exam_type: data.exam_type || '',
           filePath,
           difficulty: data.difficulty ?? 0,
           knowledge: safeKnowledge,
@@ -210,10 +233,11 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
         return {
           qid: data.qid,
           grade: data.grade || '',
-          source: data.source || '',
-          number: data.number || '',
+          source_type: data.source_type || '',
+          source_year: String(data.source_year || ''),
+          source_name: data.source_name || '',
+          source_qno: String(data.source_qno || ''),
           type: data.type || '',
-          exam_type: data.exam_type || '',
           filePath,
           difficulty: data.difficulty ?? 0,
           knowledge: safeKnowledge,

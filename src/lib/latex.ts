@@ -244,7 +244,7 @@ export function buildLatexHandout(
     const s = sectionsMap[q.qid];
 
     if (!s?.['题目']) {
-      exerciseLines.push(`% TODO: ${q.source}${q.number} 内容加载失败`);
+      exerciseLines.push(`% TODO: ${q.source_year}${q.source_name}${q.source_qno} 内容加载失败`);
       return;
     }
 
@@ -276,7 +276,7 @@ export function buildLatexHandout(
     if (q.difficulty) {
       tagLineParts.push(`\\level{${difficultyToLevel(q.difficulty)}}`);
     }
-    tagLineParts.push(`\\res{${q.source}${q.number}}`);
+    tagLineParts.push(`\\res{${q.source_year}${q.source_name}${q.source_qno}}`);
     if (isMultiSelect) {
       tagLineParts.push('(多选)');
     }

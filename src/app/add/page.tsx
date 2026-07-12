@@ -9,7 +9,7 @@ import styles from './page.module.css';
  */
 interface ParsedQuestion {
   sections: Record<string, string>;  // ## 标题 → 内容（如 "题目" → "已知集合A..."）
-  yaml: Record<string, any>;        // YAML frontmatter 的键值对（如 source, number, type）
+  yaml: Record<string, any>;        // YAML frontmatter 的键值对
   raw: string;   // 含原始 YAML 的完整文本（预览用）
   body: string;  // 去掉 YAML 后的纯正文（入库用）
   startIndex: number;  // 这道题在原文中的起始字符位置
@@ -96,16 +96,16 @@ function parseQuestions(text: string): ParsedQuestion[] {
 export default function AddPage() {
   // ===== 状态管理 =====
   const [input, setInput] = useState('');
-  const [source, setSource] = useState('');
-  const [examType, setExamType] = useState('');
+  const [sourceType, setSourceType] = useState('');
+  const [sourceYear, setSourceYear] = useState('');
+  const [sourceName, setSourceName] = useState('');
   const [defaultType, setDefaultType] = useState('');
   const [defaultGrade, setDefaultGrade] = useState('高中');
-  const [defaultSemester, setDefaultSemester] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null); // 当前高亮的卡片
-  const [conflictList, setConflictList] = useState<{ index: number; number: string; source: string; fileName: string }[] | null>(null); // 冲突列表，null 表示没在冲突检查中
+  const [conflictList, setConflictList] = useState<{ index: number; source_qno: string; source_name: string; fileName: string }[] | null>(null);
   const pendingListRef = useRef<Record<string, any>[]>([]); // 暂存待入库列表，等用户选择冲突策略后复用
 
   // ===== DOM 引用 =====
@@ -202,12 +202,12 @@ export default function AddPage() {
       }
 
       list.push({
-        source: y.source || source.trim(),
-        number: y.number || '',
+        source_type: y.source_type || sourceType,
+        source_year: y.source_year || sourceYear.trim(),
+        source_name: y.source_name || sourceName.trim(),
+        source_qno: y.source_qno || '',
         type: finalType,
         grade: y.grade || defaultGrade || '高中',
-        semester: y.semester || defaultSemester,
-        exam_type: y.exam_type || examType,
         difficulty: y.difficulty != null && y.difficulty !== '' ? Number(y.difficulty) : null,
         knowledge: Array.isArray(y.knowledge) ? y.knowledge : [],
         tags: Array.isArray(y.tags) ? y.tags : [],
@@ -265,7 +265,7 @@ export default function AddPage() {
         body: JSON.stringify({ questions: list, action: 'check' }),
       });
       const checkData = await checkRes.json();
-      const conflicts: { index: number; number: string; source: string; fileName: string }[] = checkData.conflicts || [];
+      const conflicts: { index: number; source_qno: string; source_name: string; fileName: string }[] = checkData.conflicts || [];
 
       if (conflicts.length === 0) {
         // 无冲突，直接写入
@@ -290,13 +290,29 @@ export default function AddPage() {
       {/* 顶部元数据设置栏 */}
       <div className={styles.metaBar}>
         <label className={styles.metaLabel}>
-          来源
+          来源类型
+          <select className={styles.metaSelect} value={sourceType} onChange={e => setSourceType(e.target.value)}>
+            <option value="">（不设默认）</option>
+            <option value="讲义">讲义</option>
+            <option value="外训">外训</option>
+            <option value="赛事真题">赛事真题</option>
+            <option value="考试真题">考试真题</option>
+          </select>
+        </label>
+
+        <label className={styles.metaLabel}>
+          来源年份
           <input
             className={styles.metaInput}
-            placeholder="留空则取 YAML 中的来源"
-            value={source}
-            onChange={e => setSource(e.target.value)}
+            placeholder="如 2025"
+            value={sourceYear}
+            onChange={e => setSourceYear(e.target.value)}
           />
+        </label>
+
+        <label className={styles.metaLabel}>
+          来源名称
+          <input className={styles.metaInput} placeholder="留空则取 YAML" value={sourceName} onChange={e => setSourceName(e.target.value)} />
         </label>
 
         <label className={styles.metaLabel}>
@@ -306,31 +322,6 @@ export default function AddPage() {
             <option value="高一">高一</option>
             <option value="高二">高二</option>
             <option value="高三">高三</option>
-          </select>
-        </label>
-
-        <label className={styles.metaLabel}>
-          学期
-          <select className={styles.metaSelect} value={defaultSemester} onChange={e => setDefaultSemester(e.target.value)}>
-            <option value="">（不设默认）</option>
-            <option value="高一上">高一上</option>
-            <option value="高一下">高一下</option>
-            <option value="高二上">高二上</option>
-            <option value="高二下">高二下</option>
-            <option value="高三上">高三上</option>
-            <option value="高三下">高三下</option>
-          </select>
-        </label>
-
-        <label className={styles.metaLabel}>
-          类别
-          <select className={styles.metaSelect} value={examType} onChange={e => setExamType(e.target.value)}>
-            <option value="">（不设默认）</option>
-            <option value="高考真题">高考真题</option>
-            <option value="期中考试">期中考试</option>
-            <option value="期末考试">期末考试</option>
-            <option value="模拟题">模拟题</option>
-            <option value="练习题">练习题</option>
           </select>
         </label>
 
@@ -458,10 +449,10 @@ export default function AddPage() {
                   title={`点击跳转到原文第 ${q.startIndex + 1} 个字符`}
                 >
                   <div className={styles.cardMeta}>
-                    <span className={styles.cardIdx}>{q.yaml.number || `T${i + 1}`}</span>
+                    <span className={styles.cardIdx}>{q.yaml.source_qno || `T${i + 1}`}</span>
                     {/* 来源紧跟在题号后面 */}
                     {(() => {
-                      const src = q.yaml.source || source.trim();
+                      const src = q.yaml.source_name || sourceName.trim();
                       if (src) return <span className={styles.yamlTag}>{src}</span>;
                       return null;
                     })()}
@@ -470,10 +461,10 @@ export default function AddPage() {
                       const y = q.yaml;
                       const vals: string[] = [];
                       vals.push(y.grade || defaultGrade || '高中');
-                      const sem = y.semester || defaultSemester;
-                      if (sem) vals.push(sem);
-                      const et = y.exam_type || examType;
-                      if (et) vals.push(et);
+                      const sourceTypeValue = y.source_type || sourceType;
+                      if (sourceTypeValue) vals.push(sourceTypeValue);
+                      const sourceYearValue = y.source_year || sourceYear;
+                      if (sourceYearValue) vals.push(String(sourceYearValue));
                       const diff = y.difficulty;
                       if (diff != null && diff !== '') vals.push(String(diff));
                       return vals.map((v, j) => (

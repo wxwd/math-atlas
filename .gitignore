@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+**/.mathatlas-cache-version
 
 # debug
 npm-debug.log*

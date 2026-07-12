@@ -167,6 +167,45 @@
   opacity: 0.88;
 }
 
+.btnDanger {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: #dc2626;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.btnDanger:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.tableArea {
+  position: relative;
+}
+
+.selecting {
+  cursor: crosshair;
+  user-select: none;
+}
+
+.selectionBox {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -214,6 +253,14 @@
 
 .table .expandedRow {
   background: var(--accent-light) !important;
+}
+
+.table .selectedRow {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface)) !important;
+}
+
+.table .selectedRow:hover {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
 }
 
 .detail {

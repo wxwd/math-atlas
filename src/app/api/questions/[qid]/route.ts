@@ -20,8 +20,10 @@ export async function GET(
 
   return Response.json({
     qid: question.qid,
-    source: question.source,
-    number: question.number,
+    source_type: question.source_type,
+    source_year: question.source_year,
+    source_name: question.source_name,
+    source_qno: question.source_qno,
     filePath: question.filePath,
     sections: parseSections(question.content),
   });

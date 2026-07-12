@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import type { QuestionMetaLight } from '@/lib/questions';
 import JSZip from 'jszip';
 
@@ -13,11 +14,13 @@ const PAGE_SIZE = 25;
 const BROWSE_PAGE_SIZE = 10;
 
 export default function FilterableTable({ questions }: { questions: QuestionMetaLight[] }) {
+  const router = useRouter();
   const [grade, setGrade] = useState('');
-  const [source, setSource] = useState('');
-  const [numberMin, setNumberMin] = useState('');
-  const [numberMax, setNumberMax] = useState('');
-  const [examType, setExamType] = useState('');
+  const [sourceType, setSourceType] = useState('');
+  const [sourceYear, setSourceYear] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [qnoMin, setQnoMin] = useState('');
+  const [qnoMax, setQnoMax] = useState('');
   const [difficultyMin, setDifficultyMin] = useState('');
   const [difficultyMax, setDifficultyMax] = useState('');
   const [knowledge, setKnowledge] = useState('');
@@ -31,12 +34,29 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [loadedContents, setLoadedContents] = useState<Record<number, Record<string, string>>>({});
   const [loadingQid, setLoadingQid] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'browse'>('table');
-  const [sortBy, setSortBy] = useState<'source' | 'number' | 'difficulty' | 'type'>('source');
+  const [sortBy, setSortBy] = useState<'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type'>('source_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [deleting, setDeleting] = useState(false);
+  const tableAreaRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    baseSelection: Set<number>;
+    active: boolean;
+  } | null>(null);
+  const suppressRowClickRef = useRef(false);
+  const [selectionBox, setSelectionBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const grades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
-  const sources = useMemo(() => [...new Set(questions.map(q => q.source).filter(Boolean))].sort(), [questions]);
-  const examTypes = useMemo(() => [...new Set(questions.map(q => q.exam_type).filter(Boolean))].sort(), [questions]);
+  const sourceTypes = useMemo(() => [...new Set(questions.map(q => q.source_type).filter(Boolean))].sort(), [questions]);
+  const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter(Boolean))].sort(), [questions]);
+  const sourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
   const knowledges = useMemo(() => [...new Set(questions.flatMap(q => q.knowledge).filter(Boolean))].sort(), [questions]);
   const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
 
@@ -56,11 +76,12 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     const base = questions.filter(q => {
       if (qidSet.size > 0 && !qidSet.has(q.qid)) return false;
       if (grade && q.grade !== grade) return false;
-      if (source && q.source !== source) return false;
-      if (examType && q.exam_type !== examType) return false;
-      const num = toNum(q.number);
-      if (numberMin && num < Number(numberMin)) return false;
-      if (numberMax && num > Number(numberMax)) return false;
+      if (sourceType && q.source_type !== sourceType) return false;
+      if (sourceYear && q.source_year !== sourceYear) return false;
+      if (sourceName && q.source_name !== sourceName) return false;
+      const num = toNum(q.source_qno);
+      if (qnoMin && num < Number(qnoMin)) return false;
+      if (qnoMax && num > Number(qnoMax)) return false;
       if (difficultyMin && q.difficulty < Number(difficultyMin)) return false;
       if (difficultyMax && q.difficulty > Number(difficultyMax)) return false;
       if (knowledge && !q.knowledge.includes(knowledge)) return false;
@@ -81,15 +102,17 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       base.sort((a, b) => {
         let va: string | number, vb: string | number;
         switch (sortBy) {
-          case 'number':
-            va = toNum(a.number); vb = toNum(b.number); break;
+          case 'source_qno':
+            va = toNum(a.source_qno); vb = toNum(b.source_qno); break;
+          case 'source_year':
+            va = a.source_year; vb = b.source_year; break;
           case 'difficulty':
             va = a.difficulty ?? 0; vb = b.difficulty ?? 0; break;
           case 'type':
             va = a.type || ''; vb = b.type || ''; break;
-          case 'source':
+          case 'source_name':
           default:
-            va = a.source; vb = b.source; break;
+            va = a.source_name; vb = b.source_name; break;
         }
         if (va < vb) return -1 * dir;
         if (va > vb) return 1 * dir;
@@ -102,7 +125,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   // 筛选条件变化时回到第一页
   useEffect(() => {
     setPage(1);
-  }, [grade, source, numberMin, numberMax, examType, difficultyMin, difficultyMax, knowledge, tag, qidInput, viewMode]);
+  }, [grade, sourceType, sourceYear, sourceName, qnoMin, qnoMax, difficultyMin, difficultyMax, knowledge, tag, qidInput, viewMode]);
 
   const pageSize = viewMode === 'browse' ? BROWSE_PAGE_SIZE : PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -110,8 +133,8 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const clearAll = () => {
-    setGrade(''); setSource(''); setNumberMin(''); setNumberMax('');
-    setExamType(''); setDifficultyMin(''); setDifficultyMax('');
+    setGrade(''); setSourceType(''); setSourceYear(''); setSourceName(''); setQnoMin(''); setQnoMax('');
+    setDifficultyMin(''); setDifficultyMax('');
     setKnowledge(''); setTag(''); setQidInput('');
     setSelectedQids(new Set());
   };
@@ -229,7 +252,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       }
 
       // 【来源】
-      lines.push(`【来源】${q.source}${q.number}`);
+      lines.push(`【来源】${q.source_year}${q.source_name}${q.source_qno}`);
 
       // 【备注】
       if (s['我的备注']) {
@@ -412,6 +435,134 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     }
   };
 
+  const handleSelectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !tableAreaRef.current) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest('tbody tr[data-selectable-row]') || target.closest('input, button, a')) return;
+
+    const bounds = tableAreaRef.current.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX - bounds.left,
+      startY: event.clientY - bounds.top,
+      baseSelection: new Set(selectedQids),
+      active: false,
+    };
+    tableAreaRef.current.setPointerCapture(event.pointerId);
+  };
+
+  const handleSelectionPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const area = tableAreaRef.current;
+    if (!drag || !area || drag.pointerId !== event.pointerId) return;
+
+    const bounds = area.getBoundingClientRect();
+    const currentX = Math.max(0, Math.min(event.clientX - bounds.left, bounds.width));
+    const currentY = Math.max(0, Math.min(event.clientY - bounds.top, bounds.height));
+    if (!drag.active && Math.hypot(currentX - drag.startX, currentY - drag.startY) < 6) return;
+
+    drag.active = true;
+    suppressRowClickRef.current = true;
+    event.preventDefault();
+
+    const box = {
+      left: Math.min(drag.startX, currentX),
+      top: Math.min(drag.startY, currentY),
+      width: Math.abs(currentX - drag.startX),
+      height: Math.abs(currentY - drag.startY),
+    };
+    setSelectionBox(box);
+
+    const boxTop = bounds.top + box.top;
+    const boxBottom = boxTop + box.height;
+    const boxLeft = bounds.left + box.left;
+    const boxRight = boxLeft + box.width;
+    const hitQids = Array.from(area.querySelectorAll<HTMLTableRowElement>('tr[data-selectable-row]'))
+      .filter(row => {
+        const rect = row.getBoundingClientRect();
+        return rect.top <= boxBottom && rect.bottom >= boxTop && rect.left <= boxRight && rect.right >= boxLeft;
+      })
+      .map(row => Number(row.dataset.qid));
+
+    const nextSelection = new Set(drag.baseSelection);
+    hitQids.forEach(qid => {
+      if (nextSelection.has(qid)) nextSelection.delete(qid);
+      else nextSelection.add(qid);
+    });
+    setSelectedQids(nextSelection);
+  };
+
+  const finishSelection = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (tableAreaRef.current?.hasPointerCapture(event.pointerId)) {
+      tableAreaRef.current.releasePointerCapture(event.pointerId);
+    }
+    const wasActive = drag.active;
+    dragRef.current = null;
+    setSelectionBox(null);
+    if (wasActive) window.setTimeout(() => { suppressRowClickRef.current = false; }, 0);
+  };
+
+  const deleteSelected = async () => {
+    const qids = [...selectedQids];
+    if (qids.length === 0 || deleting) return;
+
+    setDeleting(true);
+    try {
+      const previewRes = await fetch('/api/delete-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qids, action: 'preview' }),
+      });
+      const preview = await previewRes.json();
+      if (!previewRes.ok) throw new Error(preview.error || '删除预检失败');
+      if (preview.questionCount === 0) throw new Error('未找到可删除的题目');
+
+      const missingText = preview.missingQids.length > 0
+        ? `\n未找到的 qid：${preview.missingQids.join('、')}`
+        : '';
+      const confirmed = window.confirm(
+        `即将永久删除 ${preview.questionCount} 道题目和 ${preview.deletableImageCount} 张独有配图。\n` +
+        `${preview.sharedImageCount} 张被其他题目引用的配图将保留。${missingText}\n\n此操作无法撤销，确定继续吗？`
+      );
+      if (!confirmed) return;
+
+      const deleteRes = await fetch('/api/delete-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qids, action: 'delete' }),
+      });
+      const result = await deleteRes.json();
+      if (!deleteRes.ok) throw new Error(result.error || '删除失败');
+
+      const deleted = new Set<number>(result.deletedQids);
+      setSelectedQids(prev => new Set([...prev].filter(qid => !deleted.has(qid))));
+      setLoadedContents(prev => {
+        const next = { ...prev };
+        deleted.forEach(qid => delete next[qid]);
+        return next;
+      });
+      if (expandedQid !== null && deleted.has(expandedQid)) setExpandedQid(null);
+
+      const issues = [
+        ...result.errors.map((item: { qid?: number; filename?: string; message: string }) =>
+          `${item.qid ?? item.filename ?? '文件'}: ${item.message}`),
+        ...(result.missingImages.length > 0 ? [`配图原本就不存在：${result.missingImages.join('、')}`] : []),
+      ];
+      alert(
+        `已删除 ${result.deletedQids.length} 道题目和 ${result.deletedImages.length} 张配图。` +
+        (result.sharedImages.length > 0 ? `\n已保留 ${result.sharedImages.length} 张共享配图。` : '') +
+        (issues.length > 0 ? `\n\n部分项目未处理：\n${issues.join('\n')}` : '')
+      );
+      router.refresh();
+    } catch (error) {
+      alert('删除失败：' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleRowClick = async (qid: number) => {
     if (expandedQid === qid) {
       setExpandedQid(null);
@@ -469,27 +620,35 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
         </label>
 
         <label className={styles.filterLabel}>
-          类别
-          <select className={styles.filterSelect} value={examType} onChange={e => setExamType(e.target.value)}>
+          来源类型
+          <select className={styles.filterSelect} value={sourceType} onChange={e => setSourceType(e.target.value)}>
             <option value="">全部</option>
-            {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            {sourceTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
 
         <label className={styles.filterLabel}>
-          来源
-          <select className={styles.filterSelect} value={source} onChange={e => setSource(e.target.value)}>
+          来源年份
+          <select className={styles.filterSelect} value={sourceYear} onChange={e => setSourceYear(e.target.value)}>
             <option value="">全部</option>
-            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+            {sourceYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </label>
 
         <label className={styles.filterLabel}>
-          题号范围
+          来源名称
+          <select className={styles.filterSelect} value={sourceName} onChange={e => setSourceName(e.target.value)}>
+            <option value="">全部</option>
+            {sourceNames.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          来源题号范围
           <span className={styles.rangeGroup}>
-            <input className={styles.filterInput} type="number" placeholder="最小" value={numberMin} onChange={e => setNumberMin(e.target.value)} min={1} step={1} />
+            <input className={styles.filterInput} type="number" placeholder="最小" value={qnoMin} onChange={e => setQnoMin(e.target.value)} min={1} step={1} />
             ~
-            <input className={styles.filterInput} type="number" placeholder="最大" value={numberMax} onChange={e => setNumberMax(e.target.value)} min={1} step={1} />
+            <input className={styles.filterInput} type="number" placeholder="最大" value={qnoMax} onChange={e => setQnoMax(e.target.value)} min={1} step={1} />
           </span>
         </label>
 
@@ -522,8 +681,9 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           排序
           <span className={styles.rangeGroup}>
             <select className={styles.filterSelect} value={sortBy} onChange={e => { setSortBy(e.target.value as any); setPage(1); }}>
-              <option value="source">来源</option>
-              <option value="number">题号</option>
+              <option value="source_name">来源名称</option>
+              <option value="source_year">来源年份</option>
+              <option value="source_qno">来源题号</option>
               <option value="difficulty">难度</option>
               <option value="type">题型</option>
             </select>
@@ -561,6 +721,11 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           筛选结果：{filtered.length} 道题目
           {selectedQids.size > 0 && ` · 已勾选 ${selectedQids.size} 道`}
         </span>
+        {selectedQids.size > 0 && (
+          <button className={styles.btnDanger} onClick={deleteSelected} disabled={deleting}>
+            {deleting ? '处理中...' : `删除选中题目 (${selectedQids.size})`}
+          </button>
+        )}
         {filtered.length > 0 && (
           <>
             <button className={styles.btnAction} onClick={copyAsMarkdown}>复制为 Markdown</button>
@@ -596,6 +761,20 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           }}
         />
       ) : (
+      <div
+        ref={tableAreaRef}
+        className={`${styles.tableArea} ${selectionBox ? styles.selecting : ''}`}
+        onPointerDown={handleSelectionPointerDown}
+        onPointerMove={handleSelectionPointerMove}
+        onPointerUp={finishSelection}
+        onPointerCancel={finishSelection}
+        onClickCapture={event => {
+          if (!suppressRowClickRef.current) return;
+          event.stopPropagation();
+          event.preventDefault();
+          suppressRowClickRef.current = false;
+        }}
+      >
       <table className={styles.table}>
         <thead>
           <tr>
@@ -607,11 +786,12 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
               />
             </th>
             <th>qid</th>
-            <th>来源</th>
-            <th>题号</th>
+            <th>来源类型</th>
+            <th>来源年份</th>
+            <th>来源名称</th>
+            <th>来源题号</th>
             <th>题型</th>
             <th>年级</th>
-            <th>类别</th>
             <th>难度</th>
             <th>知识点</th>
             <th>标签</th>
@@ -622,10 +802,13 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             const isExpanded = expandedQid === q.qid;
             const s = loadedContents[q.qid];
             const isLoading = loadingQid === q.qid;
+            const isSelected = selectedQids.has(q.qid);
             return (
               <Fragment key={q.qid}>
                 <tr
-                  className={isExpanded ? styles.expandedRow : undefined}
+                  data-selectable-row
+                  data-qid={q.qid}
+                  className={`${isExpanded ? styles.expandedRow : ''} ${isSelected ? styles.selectedRow : ''}`.trim() || undefined}
                   onClick={() => handleRowClick(q.qid)}
                 >
                   <td onClick={e => e.stopPropagation()}>
@@ -636,11 +819,12 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                     />
                   </td>
                   <td>{q.qid}</td>
-                  <td>{q.source}</td>
-                  <td>{q.number}</td>
+                  <td>{q.source_type}</td>
+                  <td>{q.source_year}</td>
+                  <td>{q.source_name}</td>
+                  <td>{q.source_qno}</td>
                   <td>{q.type}</td>
                   <td>{q.grade}</td>
-                  <td>{q.exam_type}</td>
                   <td>{q.difficulty}</td>
                   <td>{q.knowledge.join('、')}</td>
                   <td>{q.tags.join('、')}</td>
@@ -650,7 +834,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                     <td colSpan={12} style={{ padding: '1.5rem', border: 'none' }}>
                       <div className={styles.detail} style={{ marginTop: 0 }}>
                         <div className={styles.detailMeta}>
-                          <strong>{q.source}</strong> · {q.number} · {q.type} · {q.grade} · {q.exam_type} · 难度 {q.difficulty}
+                          <strong>{q.source_year} {q.source_name}</strong> · {q.source_qno} · {q.source_type} · {q.type} · {q.grade} · 难度 {q.difficulty}
                           {' · '}
                           <a
                             href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split(((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学') + '/').pop() || '')}`}
@@ -725,6 +909,8 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           })}
         </tbody>
       </table>
+      {selectionBox && <div className={styles.selectionBox} style={selectionBox} />}
+      </div>
       )}
 
       {/* 分页控件 */}

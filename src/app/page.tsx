@@ -2,6 +2,9 @@ import { scanAllQuestionsMeta } from '@/lib/questions';
 import FilterableTable from '@/components/FilterableTable';
 import ThemeToggle from '@/components/ThemeToggle';
 
+// The question bank is stored on disk and can change through API routes.
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const questions = scanAllQuestionsMeta();
 

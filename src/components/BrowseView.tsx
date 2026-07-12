@@ -64,8 +64,8 @@ export default function BrowseView({
                   onChange={() => onToggleSelect(q.qid)}
                 />
               </label>
-              <span className={styles.source}>{q.source}</span>
-              <span className={styles.number}>{q.number}</span>
+              <span className={styles.source}>{q.source_year} {q.source_name}</span>
+              <span className={styles.number}>{q.source_qno}</span>
               <span className={styles.type}>{q.type}</span>
               {q.difficulty != null && (
                 <span className={styles.difficulty}>难度 {q.difficulty}</span>
