@@ -1,11 +1,16 @@
 import fs from 'fs';
+import path from 'path';
 import matter from 'gray-matter';
 import { invalidateMetaCache, scanAllQuestionsMeta } from '@/lib/questions';
+
+const VAULT_PATH = process.env.VAULT_PATH || './demo-vault';
+const BANK_PATH = path.resolve(VAULT_PATH, '题库');
 
 const EDITABLE_FIELDS = new Set([
   'grade',
   'source_type',
   'source_year',
+  'source_name',
   'module',
   'type',
   'difficulty',
@@ -52,6 +57,15 @@ export async function POST(req: Request) {
       value = body.value.trim();
     }
 
+    if (field === 'source_name') {
+      if (!value || typeof value !== 'string') {
+        return Response.json({ error: '来源名称不能为空' }, { status: 400 });
+      }
+      if (value === '.' || value === '..' || /[\\/:*?"<>|]/.test(value)) {
+        return Response.json({ error: '来源名称包含不能用于文件名的字符' }, { status: 400 });
+      }
+    }
+
     const requested = new Set(qids);
     const questions = scanAllQuestionsMeta().filter(question => requested.has(question.qid));
     const errors: { qid: number; message: string }[] = [];
@@ -63,6 +77,31 @@ export async function POST(req: Request) {
         const parsed = matter(raw);
         parsed.data[field] = value;
         const next = matter.stringify(parsed.content, parsed.data);
+
+        if (field === 'source_name' && typeof value === 'string') {
+          const fileName = [value, question.source_qno].filter(Boolean).join('-') || String(question.qid);
+          const targetPath = path.resolve(BANK_PATH, value, `${fileName}.md`);
+          const currentPath = path.resolve(question.filePath);
+          if (!targetPath.startsWith(BANK_PATH + path.sep)) {
+            throw new Error('目标路径超出题库目录');
+          }
+          if (targetPath !== currentPath && fs.existsSync(targetPath)) {
+            throw new Error(`目标文件已存在：${path.basename(targetPath)}`);
+          }
+          if (targetPath !== currentPath) {
+            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+            fs.writeFileSync(targetPath, next, 'utf8');
+            try {
+              fs.unlinkSync(currentPath);
+            } catch (error) {
+              fs.rmSync(targetPath, { force: true });
+              throw error;
+            }
+            updatedQids.push(question.qid);
+            continue;
+          }
+        }
+
         const tempPath = `${question.filePath}.mathatlas-tmp`;
         fs.writeFileSync(tempPath, next, 'utf8');
         fs.renameSync(tempPath, question.filePath);

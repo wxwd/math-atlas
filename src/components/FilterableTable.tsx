@@ -13,12 +13,13 @@ import styles from './FilterableTable.module.css';
 const PAGE_SIZE = 25;
 const BROWSE_PAGE_SIZE = 10;
 type SortField = 'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type';
-type BatchField = 'grade' | 'source_type' | 'source_year' | 'module' | 'type' | 'difficulty' | 'skill' | 'tags';
+type BatchField = 'grade' | 'source_type' | 'source_year' | 'source_name' | 'module' | 'type' | 'difficulty' | 'skill' | 'tags';
 
 const BATCH_FIELDS: { value: BatchField; label: string }[] = [
   { value: 'grade', label: '年级' },
   { value: 'source_type', label: '来源类型' },
   { value: 'source_year', label: '来源年份' },
+  { value: 'source_name', label: '来源名称' },
   { value: 'module', label: '知识模块' },
   { value: 'type', label: '题型' },
   { value: 'difficulty', label: '难度' },
@@ -83,13 +84,14 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       grade: grades,
       source_type: sourceTypes,
       source_year: sourceYears,
+      source_name: sourceNames,
       module: modules,
       type: [...new Set(questions.map(q => q.type).filter(Boolean))].sort(),
       skill: skills,
       tags,
     };
     return values[batchField] || [];
-  }, [batchField, grades, sourceTypes, sourceYears, modules, questions, skills, tags]);
+  }, [batchField, grades, sourceTypes, sourceYears, sourceNames, modules, questions, skills, tags]);
 
   const qidOrder = useMemo(() => {
     return qidInput
