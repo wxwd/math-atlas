@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
           source_year: q.source_year,
           source_name: q.source_name,
           source_qno: q.source_qno,
+          module: q.module,
           type: q.type,
           filePath: q.filePath,
           difficulty: q.difficulty,
@@ -92,7 +93,8 @@ export async function POST(req: NextRequest) {
       folder: folderName,
       count: questions.length,
     });
-  } catch (e: any) {
-    return Response.json({ error: e.message || '导出失败' }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return Response.json({ error: message || '导出失败' }, { status: 500 });
   }
 }

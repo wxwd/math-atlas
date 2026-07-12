@@ -66,6 +66,7 @@ export default function BrowseView({
               </label>
               <span className={styles.source}>{q.source_year} {q.source_name}</span>
               <span className={styles.number}>{q.source_qno}</span>
+              {q.module && <span className={styles.type}>{q.module}</span>}
               <span className={styles.type}>{q.type}</span>
               {q.difficulty != null && (
                 <span className={styles.difficulty}>难度 {q.difficulty}</span>

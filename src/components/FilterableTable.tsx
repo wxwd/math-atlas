@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
+import { useState, useMemo, Fragment, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { QuestionMetaLight } from '@/lib/questions';
 import JSZip from 'jszip';
@@ -12,6 +12,7 @@ import styles from './FilterableTable.module.css';
 
 const PAGE_SIZE = 25;
 const BROWSE_PAGE_SIZE = 10;
+type SortField = 'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type';
 
 export default function FilterableTable({ questions }: { questions: QuestionMetaLight[] }) {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [sourceType, setSourceType] = useState('');
   const [sourceYear, setSourceYear] = useState('');
   const [sourceName, setSourceName] = useState('');
+  const [module, setModule] = useState('');
   const [qnoMin, setQnoMin] = useState('');
   const [qnoMax, setQnoMax] = useState('');
   const [difficultyMin, setDifficultyMin] = useState('');
@@ -34,7 +36,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [loadedContents, setLoadedContents] = useState<Record<number, Record<string, string>>>({});
   const [loadingQid, setLoadingQid] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'browse'>('table');
-  const [sortBy, setSortBy] = useState<'source_name' | 'source_year' | 'source_qno' | 'difficulty' | 'type'>('source_name');
+  const [sortBy, setSortBy] = useState<SortField>('source_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [deleting, setDeleting] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const sourceTypes = useMemo(() => [...new Set(questions.map(q => q.source_type).filter(Boolean))].sort(), [questions]);
   const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter(Boolean))].sort(), [questions]);
   const sourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
+  const modules = useMemo(() => [...new Set(questions.map(q => q.module).filter(Boolean))].sort(), [questions]);
   const knowledges = useMemo(() => [...new Set(questions.flatMap(q => q.knowledge).filter(Boolean))].sort(), [questions]);
   const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
 
@@ -79,6 +82,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       if (sourceType && q.source_type !== sourceType) return false;
       if (sourceYear && q.source_year !== sourceYear) return false;
       if (sourceName && q.source_name !== sourceName) return false;
+      if (module && q.module !== module) return false;
       const num = toNum(q.source_qno);
       if (qnoMin && num < Number(qnoMin)) return false;
       if (qnoMax && num > Number(qnoMax)) return false;
@@ -122,21 +126,17 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     return base;
   })();
 
-  // 筛选条件变化时回到第一页
-  useEffect(() => {
-    setPage(1);
-  }, [grade, sourceType, sourceYear, sourceName, qnoMin, qnoMax, difficultyMin, difficultyMax, knowledge, tag, qidInput, viewMode]);
-
   const pageSize = viewMode === 'browse' ? BROWSE_PAGE_SIZE : PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const clearAll = () => {
-    setGrade(''); setSourceType(''); setSourceYear(''); setSourceName(''); setQnoMin(''); setQnoMax('');
+    setGrade(''); setSourceType(''); setSourceYear(''); setSourceName(''); setModule(''); setQnoMin(''); setQnoMax('');
     setDifficultyMin(''); setDifficultyMax('');
     setKnowledge(''); setTag(''); setQidInput('');
     setSelectedQids(new Set());
+    setPage(1);
   };
 
   const handoutQuestions = selectedQids.size > 0
@@ -222,8 +222,6 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       const type = q.type || '';
       const isMultiSelect = type === '多选题' || questionText.includes('[多选]');
       const isSingleSelect = type === '单选题' || questionText.includes('[选]');
-      const isFillIn = type === '填空题' || questionText.includes('[填]');
-
       const numberPrefix = isMultiSelect ? `${num}.(多选)` : `${num}.`;
 
       questionText = questionText
@@ -348,8 +346,8 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       } else {
         alert('导出失败：' + (data.error || '未知错误'));
       }
-    } catch (e: any) {
-      alert('导出失败：' + e.message);
+    } catch (e: unknown) {
+      alert('导出失败：' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -604,7 +602,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             className={styles.qidTextarea}
             placeholder="粘贴 qid，每行一个，或空格/逗号分隔&#10;例如：&#10;1780921807044&#10;1780921807045&#10;1780921807046"
             value={qidInput}
-            onChange={e => setQidInput(e.target.value)}
+            onChange={e => { setQidInput(e.target.value); setPage(1); }}
           />
         </label>
       </div>
@@ -613,7 +611,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       <div className={styles.filterBar}>
         <label className={styles.filterLabel}>
           年级
-          <select className={styles.filterSelect} value={grade} onChange={e => setGrade(e.target.value)}>
+          <select className={styles.filterSelect} value={grade} onChange={e => { setGrade(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {grades.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
@@ -621,7 +619,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
         <label className={styles.filterLabel}>
           来源类型
-          <select className={styles.filterSelect} value={sourceType} onChange={e => setSourceType(e.target.value)}>
+          <select className={styles.filterSelect} value={sourceType} onChange={e => { setSourceType(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {sourceTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -629,7 +627,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
         <label className={styles.filterLabel}>
           来源年份
-          <select className={styles.filterSelect} value={sourceYear} onChange={e => setSourceYear(e.target.value)}>
+          <select className={styles.filterSelect} value={sourceYear} onChange={e => { setSourceYear(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {sourceYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -637,33 +635,41 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
         <label className={styles.filterLabel}>
           来源名称
-          <select className={styles.filterSelect} value={sourceName} onChange={e => setSourceName(e.target.value)}>
+          <select className={styles.filterSelect} value={sourceName} onChange={e => { setSourceName(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {sourceNames.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
 
         <label className={styles.filterLabel}>
+          知识模块
+          <select className={styles.filterSelect} value={module} onChange={e => { setModule(e.target.value); setPage(1); }}>
+            <option value="">全部</option>
+            {modules.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
           来源题号范围
           <span className={styles.rangeGroup}>
-            <input className={styles.filterInput} type="number" placeholder="最小" value={qnoMin} onChange={e => setQnoMin(e.target.value)} min={1} step={1} />
+            <input className={styles.filterInput} type="number" placeholder="最小" value={qnoMin} onChange={e => { setQnoMin(e.target.value); setPage(1); }} min={1} step={1} />
             ~
-            <input className={styles.filterInput} type="number" placeholder="最大" value={qnoMax} onChange={e => setQnoMax(e.target.value)} min={1} step={1} />
+            <input className={styles.filterInput} type="number" placeholder="最大" value={qnoMax} onChange={e => { setQnoMax(e.target.value); setPage(1); }} min={1} step={1} />
           </span>
         </label>
 
         <label className={styles.filterLabel}>
           难度范围
           <span className={styles.rangeGroup}>
-            <input className={styles.filterInput} type="number" placeholder="最小" value={difficultyMin} onChange={e => setDifficultyMin(e.target.value)} min={0} max={1} step={0.1} />
+            <input className={styles.filterInput} type="number" placeholder="最小" value={difficultyMin} onChange={e => { setDifficultyMin(e.target.value); setPage(1); }} min={0} max={1} step={0.1} />
             ~
-            <input className={styles.filterInput} type="number" placeholder="最大" value={difficultyMax} onChange={e => setDifficultyMax(e.target.value)} min={0} max={1} step={0.1} />
+            <input className={styles.filterInput} type="number" placeholder="最大" value={difficultyMax} onChange={e => { setDifficultyMax(e.target.value); setPage(1); }} min={0} max={1} step={0.1} />
           </span>
         </label>
 
         <label className={styles.filterLabel}>
           知识点
-          <select className={styles.filterSelect} value={knowledge} onChange={e => setKnowledge(e.target.value)}>
+          <select className={styles.filterSelect} value={knowledge} onChange={e => { setKnowledge(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {knowledges.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
@@ -671,7 +677,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
         <label className={styles.filterLabel}>
           标签
-          <select className={styles.filterSelect} value={tag} onChange={e => setTag(e.target.value)}>
+          <select className={styles.filterSelect} value={tag} onChange={e => { setTag(e.target.value); setPage(1); }}>
             <option value="">全部</option>
             {tags.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -680,7 +686,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
         <label className={styles.filterLabel}>
           排序
           <span className={styles.rangeGroup}>
-            <select className={styles.filterSelect} value={sortBy} onChange={e => { setSortBy(e.target.value as any); setPage(1); }}>
+            <select className={styles.filterSelect} value={sortBy} onChange={e => { setSortBy(e.target.value as SortField); setPage(1); }}>
               <option value="source_name">来源名称</option>
               <option value="source_year">来源年份</option>
               <option value="source_qno">来源题号</option>
@@ -704,13 +710,13 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       <div className={styles.viewTabs}>
         <button
           className={`${styles.viewTab} ${viewMode === 'table' ? styles.viewTabActive : ''}`}
-          onClick={() => setViewMode('table')}
+          onClick={() => { setViewMode('table'); setPage(1); }}
         >
           📋 表格
         </button>
         <button
           className={`${styles.viewTab} ${viewMode === 'browse' ? styles.viewTabActive : ''}`}
-          onClick={() => setViewMode('browse')}
+          onClick={() => { setViewMode('browse'); setPage(1); }}
         >
           📖 浏览
         </button>
@@ -790,6 +796,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             <th>来源年份</th>
             <th>来源名称</th>
             <th>来源题号</th>
+            <th>知识模块</th>
             <th>题型</th>
             <th>年级</th>
             <th>难度</th>
@@ -823,6 +830,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                   <td>{q.source_year}</td>
                   <td>{q.source_name}</td>
                   <td>{q.source_qno}</td>
+                  <td>{q.module}</td>
                   <td>{q.type}</td>
                   <td>{q.grade}</td>
                   <td>{q.difficulty}</td>
@@ -834,7 +842,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                     <td colSpan={12} style={{ padding: '1.5rem', border: 'none' }}>
                       <div className={styles.detail} style={{ marginTop: 0 }}>
                         <div className={styles.detailMeta}>
-                          <strong>{q.source_year} {q.source_name}</strong> · {q.source_qno} · {q.source_type} · {q.type} · {q.grade} · 难度 {q.difficulty}
+                          <strong>{q.source_year} {q.source_name}</strong> · {q.source_qno} · {q.source_type} · {q.module} · {q.type} · {q.grade} · 难度 {q.difficulty}
                           {' · '}
                           <a
                             href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split(((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学') + '/').pop() || '')}`}

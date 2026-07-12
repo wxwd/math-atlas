@@ -239,8 +239,7 @@ export function buildLatexHandout(
   // --- 生成所有 exercises（平铺，不分 chapter） ---
   const exerciseLines: string[] = [];
 
-  questions.forEach((q, i) => {
-    const num = i + 1;  // 全局连续编号
+  questions.forEach((q) => {
     const s = sectionsMap[q.qid];
 
     if (!s?.['题目']) {

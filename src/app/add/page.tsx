@@ -7,9 +7,29 @@ import styles from './page.module.css';
 /**
  * 解析后的题目结构
  */
+type ParsedYaml = Record<string, string | string[]>;
+
+interface QuestionDraft {
+  source_type: string;
+  source_year: string;
+  source_name: string;
+  source_qno: string;
+  module: string;
+  type: string;
+  grade: string;
+  difficulty: number | null;
+  knowledge: string[];
+  tags: string[];
+  content: string;
+}
+
+interface SaveResult {
+  skipped?: boolean;
+}
+
 interface ParsedQuestion {
   sections: Record<string, string>;  // ## 标题 → 内容（如 "题目" → "已知集合A..."）
-  yaml: Record<string, any>;        // YAML frontmatter 的键值对
+  yaml: ParsedYaml;        // YAML frontmatter 的键值对
   raw: string;   // 含原始 YAML 的完整文本（预览用）
   body: string;  // 去掉 YAML 后的纯正文（入库用）
   startIndex: number;  // 这道题在原文中的起始字符位置
@@ -17,9 +37,9 @@ interface ParsedQuestion {
 }
 
 /** 解析单道题的 YAML 和 sections（公共逻辑，不关心位置） */
-function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: string; sections: Record<string, string> } {
+function parseOneQuestion(trimmed: string): { yaml: ParsedYaml; body: string; sections: Record<string, string> } {
   // 剥离 YAML frontmatter
-  let yaml: Record<string, any> = {};
+  const yaml: ParsedYaml = {};
   let body = trimmed;
 
   try {
@@ -30,7 +50,7 @@ function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: s
         const colonIdx = line.indexOf(':');
         if (colonIdx > 0) {
           const key = line.slice(0, colonIdx).trim();
-          let val: any = line.slice(colonIdx + 1).trim();
+          let val: string | string[] = line.slice(colonIdx + 1).trim();
           if (val.startsWith('[') && val.endsWith(']')) {
             val = val.slice(1, -1).split(',').map((s: string) => s.trim()).filter(Boolean);
           }
@@ -99,6 +119,7 @@ export default function AddPage() {
   const [sourceType, setSourceType] = useState('');
   const [sourceYear, setSourceYear] = useState('');
   const [sourceName, setSourceName] = useState('');
+  const [defaultModule, setDefaultModule] = useState('');
   const [defaultType, setDefaultType] = useState('');
   const [defaultGrade, setDefaultGrade] = useState('高中');
   const [saving, setSaving] = useState(false);
@@ -106,7 +127,7 @@ export default function AddPage() {
   const [uploading, setUploading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null); // 当前高亮的卡片
   const [conflictList, setConflictList] = useState<{ index: number; source_qno: string; source_name: string; fileName: string }[] | null>(null);
-  const pendingListRef = useRef<Record<string, any>[]>([]); // 暂存待入库列表，等用户选择冲突策略后复用
+  const pendingListRef = useRef<QuestionDraft[]>([]); // 暂存待入库列表，等用户选择冲突策略后复用
 
   // ===== DOM 引用 =====
   const fileRef = useRef<HTMLInputElement>(null);
@@ -189,26 +210,27 @@ export default function AddPage() {
   };
 
   // ===== 将解析好的题目组装成待入库列表 =====
-  const buildQuestionList = (): Record<string, any>[] | null => {
-    const list: Record<string, any>[] = [];
+  const buildQuestionList = (): QuestionDraft[] | null => {
+    const list: QuestionDraft[] = [];
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       const y = q.yaml;
 
-      const finalType = y.type || defaultType;
+      const finalType = typeof y.type === 'string' ? y.type : defaultType;
       if (!finalType) {
         setMessage(`❌ 第 ${i + 1} 道题缺少题型（YAML 没写，页面也没选默认值）`);
         return null;
       }
 
       list.push({
-        source_type: y.source_type || sourceType,
-        source_year: y.source_year || sourceYear.trim(),
-        source_name: y.source_name || sourceName.trim(),
-        source_qno: y.source_qno || '',
+        source_type: typeof y.source_type === 'string' ? y.source_type : sourceType,
+        source_year: typeof y.source_year === 'string' ? y.source_year : sourceYear.trim(),
+        source_name: typeof y.source_name === 'string' ? y.source_name : sourceName.trim(),
+        source_qno: typeof y.source_qno === 'string' ? y.source_qno : '',
+        module: typeof y.module === 'string' ? y.module : defaultModule,
         type: finalType,
-        grade: y.grade || defaultGrade || '高中',
-        difficulty: y.difficulty != null && y.difficulty !== '' ? Number(y.difficulty) : null,
+        grade: typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中',
+        difficulty: typeof y.difficulty === 'string' && y.difficulty !== '' ? Number(y.difficulty) : null,
         knowledge: Array.isArray(y.knowledge) ? y.knowledge : [],
         tags: Array.isArray(y.tags) ? y.tags : [],
         content: q.body,
@@ -218,7 +240,7 @@ export default function AddPage() {
   };
 
   // ===== 实际执行写入（用户选了冲突策略后调用）=====
-  const doSave = async (list: Record<string, any>[], onConflict: string) => {
+  const doSave = async (list: QuestionDraft[], onConflict: string) => {
     setSaving(true);
     setConflictList(null);
     setMessage('');
@@ -230,8 +252,9 @@ export default function AddPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        const written = data.results.filter((r: any) => !r.skipped).length;
-        const skipped = data.results.filter((r: any) => r.skipped).length;
+        const results = data.results as SaveResult[];
+        const written = results.filter(r => !r.skipped).length;
+        const skipped = results.filter(r => r.skipped).length;
         let msg = `✅ 成功入库 ${written} 道题`;
         if (skipped > 0) msg += `，跳过 ${skipped} 道（文件已存在）`;
         setMessage(msg);
@@ -313,6 +336,17 @@ export default function AddPage() {
         <label className={styles.metaLabel}>
           来源名称
           <input className={styles.metaInput} placeholder="留空则取 YAML" value={sourceName} onChange={e => setSourceName(e.target.value)} />
+        </label>
+
+        <label className={styles.metaLabel}>
+          知识模块
+          <select className={styles.metaSelect} value={defaultModule} onChange={e => setDefaultModule(e.target.value)}>
+            <option value="">（不设默认）</option>
+            <option value="代数">代数</option>
+            <option value="几何">几何</option>
+            <option value="数论">数论</option>
+            <option value="组合">组合</option>
+          </select>
         </label>
 
         <label className={styles.metaLabel}>
@@ -460,11 +494,13 @@ export default function AddPage() {
                     {(() => {
                       const y = q.yaml;
                       const vals: string[] = [];
-                      vals.push(y.grade || defaultGrade || '高中');
+                      vals.push(typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中');
                       const sourceTypeValue = y.source_type || sourceType;
-                      if (sourceTypeValue) vals.push(sourceTypeValue);
+                      if (sourceTypeValue) vals.push(String(sourceTypeValue));
                       const sourceYearValue = y.source_year || sourceYear;
                       if (sourceYearValue) vals.push(String(sourceYearValue));
+                      const moduleValue = y.module || defaultModule;
+                      if (moduleValue) vals.push(String(moduleValue));
                       const diff = y.difficulty;
                       if (diff != null && diff !== '') vals.push(String(diff));
                       return vals.map((v, j) => (

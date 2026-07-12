@@ -14,6 +14,7 @@ export interface QuestionMetaLight {
   source_year: string;
   source_name: string;
   source_qno: string;
+  module: string;
   type: string;
   filePath: string;
   difficulty: number;
@@ -24,6 +25,14 @@ export interface QuestionMetaLight {
 // 完整题目（含正文，用于展开详情和讲义）
 export interface QuestionMeta extends QuestionMetaLight {
   content: string;
+}
+
+type Frontmatter = Record<string, unknown>;
+
+function toStringArray(value: unknown): string[] {
+  return (Array.isArray(value) ? value : [value])
+    .filter(value => value != null && value !== '')
+    .map(value => typeof value === 'string' ? value : String(value));
 }
 
 /** 解析题目的 Markdown 正文为各个 section（题目、答案、解析等） */
@@ -100,7 +109,7 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
       const filePath = path.join(dirPath, fileName);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
-      let data: Record<string, any>;
+      let data: Frontmatter;
       try {
         const parsed = matter(raw);
         data = parsed.data;
@@ -111,22 +120,19 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
 
       if (data.qid) {
         // 防御：确保 knowledge / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
-        const safeKnowledge = (Array.isArray(data.knowledge) ? data.knowledge : [data.knowledge])
-          .filter(Boolean)
-          .map((k: any) => (typeof k === 'string' ? k : String(k)));
-        const safeTags = (Array.isArray(data.tags) ? data.tags : [data.tags])
-          .filter(Boolean)
-          .map((t: any) => (typeof t === 'string' ? t : String(t)));
+        const safeKnowledge = toStringArray(data.knowledge);
+        const safeTags = toStringArray(data.tags);
         results.push({
-          qid: data.qid,
-          grade: data.grade || '',
-          source_type: data.source_type || '',
+          qid: Number(data.qid),
+          grade: String(data.grade || ''),
+          source_type: String(data.source_type || ''),
           source_year: String(data.source_year || ''),
-          source_name: data.source_name || '',
+          source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          type: data.type || '',
+          module: String(data.module || ''),
+          type: String(data.type || ''),
           filePath,
-          difficulty: data.difficulty ?? 0,
+          difficulty: Number(data.difficulty ?? 0),
           knowledge: safeKnowledge,
           tags: safeTags,
         });
@@ -158,7 +164,7 @@ export function scanAllQuestions(): QuestionMeta[] {
       const filePath = path.join(dirPath, fileName);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
-      let data: Record<string, any>;
+      let data: Frontmatter;
       let body = '';
       try {
         const parsed = matter(raw);
@@ -170,22 +176,19 @@ export function scanAllQuestions(): QuestionMeta[] {
       }
 
       if (data.qid) {
-        const safeKnowledge = (Array.isArray(data.knowledge) ? data.knowledge : [data.knowledge])
-          .filter(Boolean)
-          .map((k: any) => (typeof k === 'string' ? k : String(k)));
-        const safeTags = (Array.isArray(data.tags) ? data.tags : [data.tags])
-          .filter(Boolean)
-          .map((t: any) => (typeof t === 'string' ? t : String(t)));
+        const safeKnowledge = toStringArray(data.knowledge);
+        const safeTags = toStringArray(data.tags);
         results.push({
-          qid: data.qid,
-          grade: data.grade || '',
-          source_type: data.source_type || '',
+          qid: Number(data.qid),
+          grade: String(data.grade || ''),
+          source_type: String(data.source_type || ''),
           source_year: String(data.source_year || ''),
-          source_name: data.source_name || '',
+          source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          type: data.type || '',
+          module: String(data.module || ''),
+          type: String(data.type || ''),
           filePath,
-          difficulty: data.difficulty ?? 0,
+          difficulty: Number(data.difficulty ?? 0),
           knowledge: safeKnowledge,
           tags: safeTags,
           content: body.trim(),
@@ -213,7 +216,7 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
       const filePath = path.join(dirPath, fileName);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
-      let data: Record<string, any>;
+      let data: Frontmatter;
       let body = '';
       try {
         const parsed = matter(raw);
@@ -224,22 +227,19 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
       }
 
       if (data.qid === qid) {
-        const safeKnowledge = (Array.isArray(data.knowledge) ? data.knowledge : [data.knowledge])
-          .filter(Boolean)
-          .map((k: any) => (typeof k === 'string' ? k : String(k)));
-        const safeTags = (Array.isArray(data.tags) ? data.tags : [data.tags])
-          .filter(Boolean)
-          .map((t: any) => (typeof t === 'string' ? t : String(t)));
+        const safeKnowledge = toStringArray(data.knowledge);
+        const safeTags = toStringArray(data.tags);
         return {
-          qid: data.qid,
-          grade: data.grade || '',
-          source_type: data.source_type || '',
+          qid: Number(data.qid),
+          grade: String(data.grade || ''),
+          source_type: String(data.source_type || ''),
           source_year: String(data.source_year || ''),
-          source_name: data.source_name || '',
+          source_name: String(data.source_name || ''),
           source_qno: String(data.source_qno || ''),
-          type: data.type || '',
+          module: String(data.module || ''),
+          type: String(data.type || ''),
           filePath,
-          difficulty: data.difficulty ?? 0,
+          difficulty: Number(data.difficulty ?? 0),
           knowledge: safeKnowledge,
           tags: safeTags,
           content: body.trim(),

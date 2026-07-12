@@ -40,6 +40,7 @@ source_type: 考试真题
 source_year:
 source_name:
 source_qno:
+module:
 type:
 difficulty:
 knowledge: []
@@ -90,6 +91,7 @@ B．（选项内容）
 | source_year | 从文件标题提取年份，并规范为四位年份 |
 | source_name | 从文件标题提取试卷名称 |
 | source_qno | 题号，如 T1、T2... |
+| module | 题目所属知识模块，如代数、几何、数论、组合；无法判断则留空 |
 | type | 从二级标题提取：单选题 / 填空题 / 解答题 |
 | difficulty | 从原文【难度】提取数值，没有则留空 |
 | knowledge | 从原文【知识点】提取，填入 [] 内，多个用英文逗号 + 空格分隔，如 `[交集运算, 补集运算]` |

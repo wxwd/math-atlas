@@ -24,6 +24,7 @@ export async function GET(
     source_year: question.source_year,
     source_name: question.source_name,
     source_qno: question.source_qno,
+    module: question.module,
     filePath: question.filePath,
     sections: parseSections(question.content),
   });

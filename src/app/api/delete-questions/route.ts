@@ -3,7 +3,8 @@ import path from 'path';
 import matter from 'gray-matter';
 import { invalidateMetaCache } from '@/lib/questions';
 
-const VAULT_PATH = path.resolve(process.env.VAULT_PATH || './demo-vault');
+// Vault 内容是运行时数据，不应被 Turbopack 当作应用依赖递归追踪。
+const VAULT_PATH = path.resolve(/*turbopackIgnore: true*/ process.env.VAULT_PATH || './demo-vault');
 const BANK_PATH = path.join(VAULT_PATH, '题库');
 const IMAGES_PATH = path.join(VAULT_PATH, 'images');
 

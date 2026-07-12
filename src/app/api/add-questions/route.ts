@@ -13,6 +13,7 @@ interface QuestionInput {
   source_year?: string;
   source_name: string;
   source_qno: string;
+  module?: string;
   type: string;
   grade?: string;
   difficulty?: number | null;
@@ -93,13 +94,14 @@ export async function POST(req: NextRequest) {
       }
 
       // 组装 YAML
-      const yaml: Record<string, any> = {
+      const yaml: Record<string, unknown> = {
         qid,
         grade: q.grade || '高中',
         source_type: q.source_type || '',
         source_year: q.source_year || '',
         source_name: q.source_name,
         source_qno: q.source_qno,
+        module: q.module || '',
         type: q.type,
         difficulty: q.difficulty ?? '',
         knowledge: q.knowledge || [],
@@ -129,8 +131,9 @@ export async function POST(req: NextRequest) {
       // 写入文件
       fs.writeFileSync(filePath, frontmatter, 'utf-8');
       results.push({ qid, source_qno: q.source_qno, source_name: q.source_name });
-    } catch (err: any) {
-      results.push({ qid: 0, source_qno: q.source_qno, source_name: q.source_name, error: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      results.push({ qid: 0, source_qno: q.source_qno, source_name: q.source_name, error: message });
     }
   }
 
