@@ -18,7 +18,7 @@ export interface QuestionMetaLight {
   type: string;
   filePath: string;
   difficulty: number;
-  knowledge: string[];
+  skill: string[];
   tags: string[];
 }
 
@@ -119,8 +119,8 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
       }
 
       if (data.qid) {
-        // 防御：确保 knowledge / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
-        const safeKnowledge = toStringArray(data.knowledge);
+        // 防御：确保 skill / tags 是字符串数组（YAML 冒号可能导致某些项被解析为对象）
+        const safeSkill = toStringArray(data.skill);
         const safeTags = toStringArray(data.tags);
         results.push({
           qid: Number(data.qid),
@@ -133,7 +133,7 @@ export function scanAllQuestionsMeta(): QuestionMetaLight[] {
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),
-          knowledge: safeKnowledge,
+          skill: safeSkill,
           tags: safeTags,
         });
       }
@@ -176,7 +176,7 @@ export function scanAllQuestions(): QuestionMeta[] {
       }
 
       if (data.qid) {
-        const safeKnowledge = toStringArray(data.knowledge);
+        const safeSkill = toStringArray(data.skill);
         const safeTags = toStringArray(data.tags);
         results.push({
           qid: Number(data.qid),
@@ -189,7 +189,7 @@ export function scanAllQuestions(): QuestionMeta[] {
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),
-          knowledge: safeKnowledge,
+          skill: safeSkill,
           tags: safeTags,
           content: body.trim(),
         });
@@ -227,7 +227,7 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
       }
 
       if (data.qid === qid) {
-        const safeKnowledge = toStringArray(data.knowledge);
+        const safeSkill = toStringArray(data.skill);
         const safeTags = toStringArray(data.tags);
         return {
           qid: Number(data.qid),
@@ -240,7 +240,7 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
           type: String(data.type || ''),
           filePath,
           difficulty: Number(data.difficulty ?? 0),
-          knowledge: safeKnowledge,
+          skill: safeSkill,
           tags: safeTags,
           content: body.trim(),
         };

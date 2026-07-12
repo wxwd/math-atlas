@@ -25,7 +25,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [qnoMax, setQnoMax] = useState('');
   const [difficultyMin, setDifficultyMin] = useState('');
   const [difficultyMax, setDifficultyMax] = useState('');
-  const [knowledge, setKnowledge] = useState('');
+  const [skill, setSkill] = useState('');
   const [tag, setTag] = useState('');
   const [qidInput, setQidInput] = useState('');
   const [page, setPage] = useState(1);
@@ -60,7 +60,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter(Boolean))].sort(), [questions]);
   const sourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
   const modules = useMemo(() => [...new Set(questions.map(q => q.module).filter(Boolean))].sort(), [questions]);
-  const knowledges = useMemo(() => [...new Set(questions.flatMap(q => q.knowledge).filter(Boolean))].sort(), [questions]);
+  const skills = useMemo(() => [...new Set(questions.flatMap(q => q.skill).filter(Boolean))].sort(), [questions]);
   const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
 
   const qidOrder = useMemo(() => {
@@ -88,7 +88,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       if (qnoMax && num > Number(qnoMax)) return false;
       if (difficultyMin && q.difficulty < Number(difficultyMin)) return false;
       if (difficultyMax && q.difficulty > Number(difficultyMax)) return false;
-      if (knowledge && !q.knowledge.includes(knowledge)) return false;
+      if (skill && !q.skill.includes(skill)) return false;
       if (tag && !q.tags.includes(tag)) return false;
       return true;
     });
@@ -134,7 +134,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const clearAll = () => {
     setGrade(''); setSourceType(''); setSourceYear(''); setSourceName(''); setModule(''); setQnoMin(''); setQnoMax('');
     setDifficultyMin(''); setDifficultyMax('');
-    setKnowledge(''); setTag(''); setQidInput('');
+    setSkill(''); setTag(''); setQidInput('');
     setSelectedQids(new Set());
     setPage(1);
   };
@@ -668,10 +668,10 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
         </label>
 
         <label className={styles.filterLabel}>
-          知识点
-          <select className={styles.filterSelect} value={knowledge} onChange={e => { setKnowledge(e.target.value); setPage(1); }}>
+          技能
+          <select className={styles.filterSelect} value={skill} onChange={e => { setSkill(e.target.value); setPage(1); }}>
             <option value="">全部</option>
-            {knowledges.map(k => <option key={k} value={k}>{k}</option>)}
+            {skills.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
 
@@ -800,7 +800,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             <th>题型</th>
             <th>年级</th>
             <th>难度</th>
-            <th>知识点</th>
+            <th>技能</th>
             <th>标签</th>
           </tr>
         </thead>
@@ -834,7 +834,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
                   <td>{q.type}</td>
                   <td>{q.grade}</td>
                   <td>{q.difficulty}</td>
-                  <td>{q.knowledge.join('、')}</td>
+                  <td>{q.skill.join('、')}</td>
                   <td>{q.tags.join('、')}</td>
                 </tr>
                 {isExpanded && (

@@ -44,7 +44,7 @@ source_qno: （来源题号，如 T1、T2）
 module: （知识模块，如代数、几何、数论、组合；无法判断则留空）
 type: （单选题/多选题/填空题/解答题，四选一）
 difficulty: （从原文【难度】提取数值，没有则留空）
-knowledge: []
+skill: []
 ai_tags: []
 tags: []
 status: 待入库

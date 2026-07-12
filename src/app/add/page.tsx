@@ -18,7 +18,7 @@ interface QuestionDraft {
   type: string;
   grade: string;
   difficulty: number | null;
-  knowledge: string[];
+  skill: string[];
   tags: string[];
   content: string;
 }
@@ -255,7 +255,7 @@ export default function AddPage() {
         type: finalType,
         grade: typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中',
         difficulty: typeof y.difficulty === 'string' && y.difficulty !== '' ? Number(y.difficulty) : null,
-        knowledge: Array.isArray(y.knowledge) ? y.knowledge : [],
+        skill: Array.isArray(y.skill) ? y.skill : [],
         tags: Array.isArray(y.tags) ? y.tags : [],
         content: q.body,
       });

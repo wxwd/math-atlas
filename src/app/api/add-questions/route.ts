@@ -17,7 +17,7 @@ interface QuestionInput {
   type: string;
   grade?: string;
   difficulty?: number | null;
-  knowledge?: string[];
+  skill?: string[];
   tags?: string[];
 }
 
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         module: q.module || '',
         type: q.type,
         difficulty: q.difficulty ?? '',
-        knowledge: q.knowledge || [],
+        skill: q.skill || [],
         ai_tags: [],
         tags: q.tags || [],
         status: '待入库',

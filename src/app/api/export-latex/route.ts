@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
           type: q.type,
           filePath: q.filePath,
           difficulty: q.difficulty,
-          knowledge: q.knowledge,
+          skill: q.skill,
           tags: q.tags,
         });
         sectionsMap[q.qid] = parseSections(q.content);
