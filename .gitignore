@@ -24,6 +24,7 @@
 .DS_Store
 *.pem
 **/.mathatlas-cache-version
+/my-vault/
 
 # debug
 npm-debug.log*
