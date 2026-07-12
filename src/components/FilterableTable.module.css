@@ -68,6 +68,74 @@
   border-color: var(--accent);
 }
 
+.multiSelect {
+  position: relative;
+  min-width: 96px;
+}
+
+.multiSelectSummary {
+  box-sizing: border-box;
+  max-width: 180px;
+  padding: 0.4rem 1.6rem 0.4rem 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.multiSelectSummary::-webkit-details-marker {
+  display: none;
+}
+
+.multiSelectSummary::after {
+  content: '⌄';
+  position: absolute;
+  right: 0.55rem;
+  color: var(--text-muted);
+}
+
+.multiSelect[open] .multiSelectSummary {
+  border-color: var(--accent);
+}
+
+.multiSelectMenu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-height: 260px;
+  padding: 0.3rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 12%);
+}
+
+.multiSelectOption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: max-content;
+  padding: 0.35rem 0.45rem;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.multiSelectOption:hover {
+  background: var(--accent-light);
+}
+
 .filterInput {
   width: 60px;
 }

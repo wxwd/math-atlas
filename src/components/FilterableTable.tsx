@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Fragment, useRef } from 'react';
+import { useState, useMemo, Fragment, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { QuestionMetaLight } from '@/lib/questions';
 import JSZip from 'jszip';
@@ -28,19 +28,73 @@ const BATCH_FIELDS: { value: BatchField; label: string }[] = [
   { value: 'tags', label: '标签' },
 ];
 
+function MultiSelect({
+  values,
+  options,
+  onChange,
+}: {
+  values: string[];
+  options: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const closeWhenClickingOutside = (event: PointerEvent) => {
+      const details = detailsRef.current;
+      if (details?.open && !details.contains(event.target as Node)) {
+        details.open = false;
+      }
+    };
+
+    document.addEventListener('pointerdown', closeWhenClickingOutside);
+    return () => document.removeEventListener('pointerdown', closeWhenClickingOutside);
+  }, []);
+
+  const summary = values.length === 0
+    ? '全部'
+    : values.length <= 2
+      ? values.join('、')
+      : `已选 ${values.length} 项`;
+
+  const toggle = (value: string) => {
+    onChange(values.includes(value)
+      ? values.filter(item => item !== value)
+      : [...values, value]);
+  };
+
+  return (
+    <details ref={detailsRef} className={styles.multiSelect}>
+      <summary className={styles.multiSelectSummary} title={values.join('、')}>{summary}</summary>
+      <div className={styles.multiSelectMenu}>
+        <label className={styles.multiSelectOption}>
+          <input type="checkbox" checked={values.length === 0} onChange={() => onChange([])} />
+          全部
+        </label>
+        {options.map(option => (
+          <label className={styles.multiSelectOption} key={option}>
+            <input type="checkbox" checked={values.includes(option)} onChange={() => toggle(option)} />
+            {option}
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export default function FilterableTable({ questions }: { questions: QuestionMetaLight[] }) {
   const router = useRouter();
-  const [grade, setGrade] = useState('');
-  const [sourceType, setSourceType] = useState('');
-  const [sourceYear, setSourceYear] = useState('');
-  const [sourceName, setSourceName] = useState('');
-  const [module, setModule] = useState('');
+  const [gradesSelected, setGradesSelected] = useState<string[]>([]);
+  const [sourceTypesSelected, setSourceTypesSelected] = useState<string[]>([]);
+  const [sourceYearsSelected, setSourceYearsSelected] = useState<string[]>([]);
+  const [sourceNamesSelected, setSourceNamesSelected] = useState<string[]>([]);
+  const [modulesSelected, setModulesSelected] = useState<string[]>([]);
   const [qnoMin, setQnoMin] = useState('');
   const [qnoMax, setQnoMax] = useState('');
   const [difficultyMin, setDifficultyMin] = useState('');
   const [difficultyMax, setDifficultyMax] = useState('');
-  const [skill, setSkill] = useState('');
-  const [tag, setTag] = useState('');
+  const [skillsSelected, setSkillsSelected] = useState<string[]>([]);
+  const [tagsSelected, setTagsSelected] = useState<string[]>([]);
   const [qidInput, setQidInput] = useState('');
   const [page, setPage] = useState(1);
   const [expandedQid, setExpandedQid] = useState<number | null>(null);
@@ -73,26 +127,56 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     height: number;
   } | null>(null);
 
-  const grades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
-  const sourceTypes = useMemo(() => [...new Set(questions.map(q => q.source_type).filter(Boolean))].sort(), [questions]);
-  const sourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter((y): y is number => y != null))].sort((a, b) => a - b), [questions]);
-  const sourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
-  const modules = useMemo(() => [...new Set(questions.flatMap(q => splitModules(q.module)))].sort(), [questions]);
-  const skills = useMemo(() => [...new Set(questions.flatMap(q => q.skill).filter(Boolean))].sort(), [questions]);
-  const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
+  const allGrades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
+  const allSourceTypes = useMemo(() => [...new Set(questions.map(q => q.source_type).filter(Boolean))].sort(), [questions]);
+  const allSourceYears = useMemo(() => [...new Set(questions.map(q => q.source_year).filter((y): y is number => y != null))].sort((a, b) => a - b), [questions]);
+  const allSourceNames = useMemo(() => [...new Set(questions.map(q => q.source_name).filter(Boolean))].sort(), [questions]);
+  const allModules = useMemo(() => [...new Set(questions.flatMap(q => splitModules(q.module)))].sort(), [questions]);
+  const allSkills = useMemo(() => [...new Set(questions.flatMap(q => q.skill).filter(Boolean))].sort(), [questions]);
+  const allTags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
+
+  const { grades, sourceTypes, sourceYears, sourceNames, modules, skills, tags } = useMemo(() => {
+    type Facet = 'grade' | 'sourceType' | 'sourceYear' | 'sourceName' | 'module' | 'skill' | 'tag';
+    const matchesOtherFacets = (q: QuestionMetaLight, omitted: Facet) => {
+      if (omitted !== 'grade' && gradesSelected.length > 0 && !gradesSelected.includes(q.grade)) return false;
+      if (omitted !== 'sourceType' && sourceTypesSelected.length > 0 && !sourceTypesSelected.includes(q.source_type)) return false;
+      if (omitted !== 'sourceYear' && sourceYearsSelected.length > 0 && !sourceYearsSelected.includes(String(q.source_year))) return false;
+      if (omitted !== 'sourceName' && sourceNamesSelected.length > 0 && !sourceNamesSelected.includes(q.source_name)) return false;
+      if (omitted !== 'module' && modulesSelected.length > 0 && !splitModules(q.module).some(value => modulesSelected.includes(value))) return false;
+      if (omitted !== 'skill' && skillsSelected.length > 0 && !q.skill.some(value => skillsSelected.includes(value))) return false;
+      if (omitted !== 'tag' && tagsSelected.length > 0 && !q.tags.some(value => tagsSelected.includes(value))) return false;
+      const sourceQno = parseInt(q.source_qno.replace(/^[A-Za-z]+/, ''), 10);
+      if (qnoMin && sourceQno < Number(qnoMin)) return false;
+      if (qnoMax && sourceQno > Number(qnoMax)) return false;
+      if (difficultyMin && q.difficulty < Number(difficultyMin)) return false;
+      if (difficultyMax && q.difficulty > Number(difficultyMax)) return false;
+      return true;
+    };
+    const forFacet = (facet: Facet) => questions.filter(q => matchesOtherFacets(q, facet));
+
+    return {
+      grades: [...new Set(forFacet('grade').map(q => q.grade).filter(Boolean))].sort(),
+      sourceTypes: [...new Set(forFacet('sourceType').map(q => q.source_type).filter(Boolean))].sort(),
+      sourceYears: [...new Set(forFacet('sourceYear').map(q => q.source_year).filter((y): y is number => y != null))].sort((a, b) => a - b),
+      sourceNames: [...new Set(forFacet('sourceName').map(q => q.source_name).filter(Boolean))].sort(),
+      modules: [...new Set(forFacet('module').flatMap(q => splitModules(q.module)))].sort(),
+      skills: [...new Set(forFacet('skill').flatMap(q => q.skill).filter(Boolean))].sort(),
+      tags: [...new Set(forFacet('tag').flatMap(q => q.tags).filter(Boolean))].sort(),
+    };
+  }, [questions, gradesSelected, sourceTypesSelected, sourceYearsSelected, sourceNamesSelected, modulesSelected, skillsSelected, tagsSelected, qnoMin, qnoMax, difficultyMin, difficultyMax]);
   const batchSuggestions = useMemo(() => {
     const values: Partial<Record<BatchField, string[]>> = {
-      grade: grades,
-      source_type: sourceTypes,
-      source_year: sourceYears.map(String),
-      source_name: sourceNames,
-      module: modules,
+      grade: allGrades,
+      source_type: allSourceTypes,
+      source_year: allSourceYears.map(String),
+      source_name: allSourceNames,
+      module: allModules,
       type: [...new Set(questions.map(q => q.type).filter(Boolean))].sort(),
-      skill: skills,
-      tags,
+      skill: allSkills,
+      tags: allTags,
     };
     return values[batchField] || [];
-  }, [batchField, grades, sourceTypes, sourceYears, sourceNames, modules, questions, skills, tags]);
+  }, [batchField, allGrades, allSourceTypes, allSourceYears, allSourceNames, allModules, questions, allSkills, allTags]);
 
   const qidOrder = useMemo(() => {
     return qidInput
@@ -109,18 +193,18 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const filtered = (() => {
     const base = questions.filter(q => {
       if (qidSet.size > 0 && !qidSet.has(q.qid)) return false;
-      if (grade && q.grade !== grade) return false;
-      if (sourceType && q.source_type !== sourceType) return false;
-      if (sourceYear && q.source_year !== Number(sourceYear)) return false;
-      if (sourceName && q.source_name !== sourceName) return false;
-      if (module && !splitModules(q.module).includes(module)) return false;
+      if (gradesSelected.length > 0 && !gradesSelected.includes(q.grade)) return false;
+      if (sourceTypesSelected.length > 0 && !sourceTypesSelected.includes(q.source_type)) return false;
+      if (sourceYearsSelected.length > 0 && !sourceYearsSelected.includes(String(q.source_year))) return false;
+      if (sourceNamesSelected.length > 0 && !sourceNamesSelected.includes(q.source_name)) return false;
+      if (modulesSelected.length > 0 && !splitModules(q.module).some(value => modulesSelected.includes(value))) return false;
       const num = toNum(q.source_qno);
       if (qnoMin && num < Number(qnoMin)) return false;
       if (qnoMax && num > Number(qnoMax)) return false;
       if (difficultyMin && q.difficulty < Number(difficultyMin)) return false;
       if (difficultyMax && q.difficulty > Number(difficultyMax)) return false;
-      if (skill && !q.skill.includes(skill)) return false;
-      if (tag && !q.tags.includes(tag)) return false;
+      if (skillsSelected.length > 0 && !q.skill.some(value => skillsSelected.includes(value))) return false;
+      if (tagsSelected.length > 0 && !q.tags.some(value => tagsSelected.includes(value))) return false;
       return true;
     });
     // 按输入框的 qid 顺序排列（优先级最高）
@@ -167,9 +251,9 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const clearAll = () => {
-    setGrade(''); setSourceType(''); setSourceYear(''); setSourceName(''); setModule(''); setQnoMin(''); setQnoMax('');
+    setGradesSelected([]); setSourceTypesSelected([]); setSourceYearsSelected([]); setSourceNamesSelected([]); setModulesSelected([]); setQnoMin(''); setQnoMax('');
     setDifficultyMin(''); setDifficultyMax('');
-    setSkill(''); setTag(''); setQidInput('');
+    setSkillsSelected([]); setTagsSelected([]); setQidInput('');
     setSelectedQids(new Set());
     setPage(1);
   };
@@ -692,42 +776,34 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
       <div className={styles.filterBar}>
         <label className={styles.filterLabel}>
           年级
-          <select className={styles.filterSelect} value={grade} onChange={e => { setGrade(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {grades.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
+          <MultiSelect values={gradesSelected} options={grades} onChange={values => { setGradesSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
           来源类型
-          <select className={styles.filterSelect} value={sourceType} onChange={e => { setSourceType(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {sourceTypes.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <MultiSelect values={sourceTypesSelected} options={sourceTypes} onChange={values => { setSourceTypesSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
           来源年份
-          <select className={styles.filterSelect} value={sourceYear} onChange={e => { setSourceYear(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {sourceYears.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <MultiSelect values={sourceYearsSelected} options={sourceYears.map(String)} onChange={values => { setSourceYearsSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
           来源名称
-          <select className={styles.filterSelect} value={sourceName} onChange={e => { setSourceName(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {sourceNames.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <MultiSelect values={sourceNamesSelected} options={sourceNames} onChange={values => {
+            setSourceNamesSelected(values);
+            const availableModules = new Set(questions
+              .filter(q => values.length === 0 || values.includes(q.source_name))
+              .flatMap(q => splitModules(q.module)));
+            setModulesSelected(current => current.filter(value => availableModules.has(value)));
+            setPage(1);
+          }} />
         </label>
 
         <label className={styles.filterLabel}>
           知识模块
-          <select className={styles.filterSelect} value={module} onChange={e => { setModule(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {modules.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <MultiSelect values={modulesSelected} options={modules} onChange={values => { setModulesSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
@@ -750,18 +826,12 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
 
         <label className={styles.filterLabel}>
           技能
-          <select className={styles.filterSelect} value={skill} onChange={e => { setSkill(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {skills.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <MultiSelect values={skillsSelected} options={skills} onChange={values => { setSkillsSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
           标签
-          <select className={styles.filterSelect} value={tag} onChange={e => { setTag(e.target.value); setPage(1); }}>
-            <option value="">全部</option>
-            {tags.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <MultiSelect values={tagsSelected} options={tags} onChange={values => { setTagsSelected(values); setPage(1); }} />
         </label>
 
         <label className={styles.filterLabel}>
