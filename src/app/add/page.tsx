@@ -29,12 +29,14 @@ interface SaveResult {
 
 interface MetadataOptions {
   sourceTypes: string[];
+  sourceYears: number[];
   sourceNames: string[];
   modules: string[];
 }
 
 const DEFAULT_METADATA_OPTIONS: MetadataOptions = {
   sourceTypes: [],
+  sourceYears: [],
   sourceNames: [],
   modules: [],
 };
@@ -361,10 +363,14 @@ export default function AddPage() {
           来源年份
           <input
             className={styles.metaInput}
-            placeholder="如 2025"
+            placeholder="输入或选择"
+            list="source-year-options"
             value={sourceYear}
             onChange={e => setSourceYear(e.target.value)}
           />
+          <datalist id="source-year-options">
+            {metadataOptions.sourceYears.map(value => <option key={value} value={value} />)}
+          </datalist>
         </label>
 
         <label className={styles.metaLabel}>

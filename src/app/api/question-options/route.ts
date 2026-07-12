@@ -12,6 +12,8 @@ export async function GET() {
 
   return Response.json({
     sourceTypes: uniqueSorted(questions.map(question => question.source_type)),
+    sourceYears: [...new Set(questions.map(question => question.source_year).filter((year): year is number => year != null))]
+      .sort((a, b) => b - a),
     sourceNames: uniqueSorted(questions.map(question => question.source_name)),
     modules: uniqueSorted(questions.flatMap(question => splitModules(question.module))),
   });
