@@ -81,8 +81,9 @@ export async function POST(req: Request) {
         if (field === 'source_name' || field === 'source_year') {
           const sourceName = field === 'source_name' ? String(value) : question.source_name;
           const sourceYear = field === 'source_year' ? value : question.source_year;
+          const dirName = [sourceYear, sourceName].filter(Boolean).join('-') || '未分类';
           const fileName = [sourceYear, sourceName, question.source_qno].filter(Boolean).join('-') || String(question.qid);
-          const targetPath = path.resolve(BANK_PATH, sourceName, `${fileName}.md`);
+          const targetPath = path.resolve(BANK_PATH, dirName, `${fileName}.md`);
           const currentPath = path.resolve(question.filePath);
           if (!targetPath.startsWith(BANK_PATH + path.sep)) {
             throw new Error('目标路径超出题库目录');

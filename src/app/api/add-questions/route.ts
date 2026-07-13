@@ -25,7 +25,7 @@ interface QuestionInput {
  * 根据 source_year、source_name 和 source_qno 计算文件路径
  */
 function buildFilePath(sourceYear: number | null, sourceName: string, sourceQno: string, qid?: number): string {
-  const dirName = sourceName || '未分类';
+  const dirName = [sourceYear, sourceName].filter(Boolean).join('-') || '未分类';
   const nameParts = [sourceYear, sourceName, sourceQno].filter(Boolean);
   const baseName = nameParts.length > 0 ? nameParts.join('-') : String(qid);
   return path.join(BANK_PATH, dirName, `${baseName}.md`);
