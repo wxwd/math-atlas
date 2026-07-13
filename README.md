@@ -76,7 +76,19 @@ npm run start
 
 ## 配置自己的 Obsidian Vault
 
-不配置环境变量时，MathAtlas 默认读取项目中的 `demo-vault/`。若要使用自己的题库，请在项目根目录手动新建 `.env.local`：
+不配置环境变量时，MathAtlas 默认读取项目中的 `demo-vault/`。若要使用自己的题库，请复制项目提供的 `.env.local.example` 并将副本命名为 `.env.local`，然后修改其中的路径：
+
+```bash
+cp .env.local.example .env.local
+```
+
+Windows PowerShell 可使用：
+
+```powershell
+Copy-Item .env.local.example .env.local
+```
+
+配置内容如下：
 
 ```dotenv
 VAULT_PATH=D:\Obsidian\高中数学
