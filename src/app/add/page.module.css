@@ -25,6 +25,25 @@
   flex-wrap: wrap;
 }
 
+.overrideHint {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  padding-right: 0.75rem;
+  margin-right: 0.1rem;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.overrideHint strong {
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
 .metaLabel {
   display: flex;
   flex-direction: column;

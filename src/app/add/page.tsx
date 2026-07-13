@@ -46,6 +46,21 @@ function nonEmptyText(value: string | string[] | undefined, fallback = ''): stri
   return fallback.trim();
 }
 
+/**
+ * 顶部批量设置一旦填写，就优先于题目自带的 YAML；未填写时保留题目原值。
+ */
+function overriddenText(override: string, original: string | string[] | undefined, fallback = ''): string {
+  if (override.trim()) return override.trim();
+  return nonEmptyText(original, fallback);
+}
+
+function overriddenArray(override: string, original: string | string[] | undefined): string[] {
+  if (override.trim()) return [override.trim()];
+  if (Array.isArray(original)) return original;
+  if (typeof original === 'string' && original.trim()) return [original.trim()];
+  return [];
+}
+
 interface ParsedQuestion {
   sections: Record<string, string>;  // ## 标题 → 内容（如 "题目" → "已知集合A..."）
   yaml: ParsedYaml;        // YAML frontmatter 的键值对
@@ -247,22 +262,22 @@ export default function AddPage() {
       const q = questions[i];
       const y = q.yaml;
 
-      const finalType = typeof y.type === 'string' ? y.type : defaultType;
+      const finalType = overriddenText(defaultType, y.type);
       if (!finalType) {
-        setMessage(`❌ 第 ${i + 1} 道题缺少题型（YAML 没写，页面也没选默认值）`);
+        setMessage(`❌ 第 ${i + 1} 道题缺少题型（YAML 没写，顶部也未统一设置）`);
         return null;
       }
 
-      const sourceYearValue = nonEmptyText(y.source_year, sourceYear);
+      const sourceYearValue = overriddenText(sourceYear, y.source_year);
 
       list.push({
-        source_type: nonEmptyText(y.source_type, sourceType),
+        source_type: overriddenText(sourceType, y.source_type),
         source_year: Number(sourceYearValue) || null,
-        source_name: nonEmptyText(y.source_name, sourceName),
+        source_name: overriddenText(sourceName, y.source_name),
         source_qno: nonEmptyText(y.source_qno, `T${i + 1}`),
-        module: Array.isArray(y.module) ? y.module : typeof y.module === 'string' ? [y.module] : defaultModule ? [defaultModule] : [],
+        module: overriddenArray(defaultModule, y.module),
         type: finalType,
-        grade: typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中',
+        grade: defaultGrade || nonEmptyText(y.grade, '高中'),
         difficulty: typeof y.difficulty === 'string' && y.difficulty !== '' ? Number(y.difficulty) : null,
         skill: Array.isArray(y.skill) ? y.skill : [],
         tags: Array.isArray(y.tags) ? y.tags : [],
@@ -343,8 +358,12 @@ export default function AddPage() {
     <div className={styles.container}>
       <h1 className={styles.title}>添加题目</h1>
 
-      {/* 顶部元数据设置栏 */}
+      {/* 顶部批量覆盖设置栏 */}
       <div className={styles.metaBar}>
+        <div className={styles.overrideHint}>
+          <strong>批量覆盖</strong>
+          <span>已填写的项目将统一覆盖当前全部题目</span>
+        </div>
         <label className={styles.metaLabel}>
           来源类型
           <input
@@ -413,7 +432,7 @@ export default function AddPage() {
         <label className={styles.metaLabel}>
           题型
           <select className={styles.metaSelect} value={defaultType} onChange={e => setDefaultType(e.target.value)}>
-            <option value="">（不设默认）</option>
+            <option value="">（不统一）</option>
             <option value="单选题">单选题</option>
             <option value="多选题">多选题</option>
             <option value="填空题">填空题</option>
@@ -537,21 +556,21 @@ export default function AddPage() {
                     <span className={styles.cardIdx}>{nonEmptyText(q.yaml.source_qno, `T${i + 1}`)}</span>
                     {/* 来源紧跟在题号后面 */}
                     {(() => {
-                      const src = nonEmptyText(q.yaml.source_name, sourceName);
+                      const src = overriddenText(sourceName, q.yaml.source_name);
                       if (src) return <span className={styles.yamlTag}>{src}</span>;
                       return null;
                     })()}
-                    <span className={styles.cardType}>{q.yaml.type || defaultType || '?'}</span>
+                    <span className={styles.cardType}>{overriddenText(defaultType, q.yaml.type) || '?'}</span>
                     {(() => {
                       const y = q.yaml;
                       const vals: string[] = [];
-                      vals.push(typeof y.grade === 'string' && y.grade ? y.grade : defaultGrade || '高中');
-                      const sourceTypeValue = nonEmptyText(y.source_type, sourceType);
+                      vals.push(defaultGrade || nonEmptyText(y.grade, '高中'));
+                      const sourceTypeValue = overriddenText(sourceType, y.source_type);
                       if (sourceTypeValue) vals.push(String(sourceTypeValue));
-                      const sourceYearValue = nonEmptyText(y.source_year, sourceYear);
+                      const sourceYearValue = overriddenText(sourceYear, y.source_year);
                       if (sourceYearValue) vals.push(String(sourceYearValue));
-                      const moduleValue = y.module || defaultModule;
-                      if (moduleValue) vals.push(String(moduleValue));
+                      const moduleValue = overriddenArray(defaultModule, y.module);
+                      if (moduleValue.length > 0) vals.push(moduleValue.join(', '));
                       const diff = y.difficulty;
                       if (diff != null && diff !== '') vals.push(String(diff));
                       return vals.map((v, j) => (
